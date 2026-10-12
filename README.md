@@ -1,3 +1,17 @@
+# Excalidraw component for Excalidraw-ymjr
+
+<!-- ymjr: identify the custom component without replacing upstream attribution. -->
+This is the component source fork used by [Excalidraw-ymjr](https://github.com/Bowen-0x00/obsidian-excalidraw-plugin-ymjr). Custom source lives on the `ymjr` branch; upstream source and history are retained.
+
+- [Custom feature inventory](docs/ymjr-customizations.md)
+- [Plugin source and paired build instructions](https://github.com/Bowen-0x00/obsidian-excalidraw-plugin/tree/ymjr)
+
+Use Node.js 22+ and Yarn Classic. Install dependencies with `yarn install --frozen-lockfile`, then run `yarn --cwd packages/excalidraw build:obsidian`. The four consumer artifacts are generated under `packages/excalidraw/dist/obsidian/`; they must not be committed. The plugin pins the exact component commit in `ymjr-component.json`.
+
+Do not use the retired UMD/webpack build or publish a package under the upstream maintainer's npm scope. End users install the bundled plugin from the existing ymjr release repository, not this component repository.
+
+The upstream README and MIT attribution below are retained.
+
 <a href="https://excalidraw.com/" target="_blank" rel="noopener">
   <picture>
     <source media="(prefers-color-scheme: dark)" alt="Excalidraw" srcset="https://excalidraw.nyc3.cdn.digitaloceanspaces.com/github/excalidraw_github_cover_2_dark.png" />
