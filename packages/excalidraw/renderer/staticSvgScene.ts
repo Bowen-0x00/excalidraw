@@ -58,7 +58,6 @@ import type { AppState, BinaryFiles } from "../types";
 import type { Drawable } from "roughjs/bin/core";
 import type { RoughSVG } from "roughjs/bin/svg";
 
-
 const roughSVGDrawWithPrecision = (
   rsvg: RoughSVG,
   drawable: Drawable,
@@ -96,7 +95,7 @@ const maybeWrapNodesInFrameClipPath = (
   return null;
 };
 
-const renderElementToSvg = (
+const renderElementToSvg = async (
   element: Readonly<NonDeletedExcalidrawElement>,
   elementsMap: RenderableElementsMap,
   rsvg: RoughSVG,
@@ -150,6 +149,25 @@ const renderElementToSvg = (
     ((getContainingFrame(element, elementsMap)?.opacity ?? 100) *
       element.opacity) /
     10000;
+  const core = (window as any).EA_Core;
+  if (core) {
+    const context = {
+      addToRoot,
+      svgRoot,
+      root,
+      element,
+      offsetX,
+      offsetY,
+      degree,
+      cx,
+      cy,
+      renderConfig,
+    };
+    // ymjr: allow the host to replace individual SVG elements.
+    if (core.dispatchSync("renderElementToSvgCheck", context)) {
+      return;
+    }
+  }
 
   switch (element.type) {
     case "selection": {
@@ -326,7 +344,7 @@ const renderElementToSvg = (
       addToRoot(node, element);
 
       const label = createPlaceholderEmbeddableLabel(element);
-      renderElementToSvg(
+      await renderElementToSvg(
         label,
         elementsMap,
         rsvg,
@@ -337,6 +355,7 @@ const renderElementToSvg = (
         renderConfig,
       );
 
+      // ymjr: preserve custom embeddable scaling.
       const scaleX = element.scale?.[0] || 1; //zsviczian
       const scaleY = element.scale?.[1] || 1; //zsviczian
       // render embeddable element + iframe
@@ -485,6 +504,7 @@ const renderElementToSvg = (
           node.setAttribute("stroke-opacity", `${opacity}`);
           node.setAttribute("fill-opacity", `${opacity}`);
         }
+        node.setAttribute("stroke-linecap", "round");
         node.setAttribute(
           "transform",
           `translate(${offsetX || 0} ${
@@ -628,7 +648,8 @@ const renderElementToSvg = (
         isInitializedImageElement(element) && files[element.fileId];
       if (fileData) {
         const { reuseImages = true } = renderConfig;
-        let suffix = fileData.mimeType === "image/svg+xml" &&
+        let suffix =
+          fileData.mimeType === "image/svg+xml" &&
           element.customData?.doNotInvertSVGInDarkMode
             ? "-no-invert-svg"
             : element.customData?.invertBitmapInDarkmode
@@ -717,8 +738,11 @@ const renderElementToSvg = (
 
         if (
           renderConfig.theme === THEME.DARK &&
-          ((fileData.mimeType === MIME_TYPES.svg && !element.customData?.doNotInvertSVGInDarkMode) ||
-            (!!element.customData?.pdfPageViewProps && (element.customData?.invertBitmapInDarkmode ?? true)) ||
+          // ymjr: preserve custom dark-mode image inversion.
+          ((fileData.mimeType === MIME_TYPES.svg &&
+            !element.customData?.doNotInvertSVGInDarkMode) ||
+            (!!element.customData?.pdfPageViewProps &&
+              (element.customData?.invertBitmapInDarkmode ?? true)) ||
             !!element.customData?.invertBitmapInDarkmode) //zsviczian
         ) {
           g.setAttribute("filter", DARK_THEME_FILTER);
@@ -797,8 +821,10 @@ const renderElementToSvg = (
       if (
         renderConfig.frameRendering.enabled &&
         renderConfig.frameRendering.outline &&
-        !(!renderConfig.frameRendering.markerEnabled &&
-          element.frameRole === "marker") //zsviczian
+        !(
+          !renderConfig.frameRendering.markerEnabled &&
+          element.frameRole === "marker"
+        ) //zsviczian
       ) {
         const rect = document.createElementNS(SVG_NS, "rect");
 
@@ -826,7 +852,7 @@ const renderElementToSvg = (
             return applyDarkModeFilter(
               color, //zsviczian
               renderConfig.theme === THEME.DARK,
-            )
+            );
           })(),
         );
         rect.setAttribute(
@@ -907,15 +933,33 @@ const renderElementToSvg = (
         );
 
         addToRoot(g || node, element);
+        break;
       } else {
         // @ts-ignore
         throw new Error(`Unimplemented type ${element.type}`);
       }
     }
   }
+  // await (window as any)?.renderElementToSvg_Hook?.(addToRoot, svgRoot, root, element, offsetX, offsetY, degree, cx, cy, renderConfig);
+  if (core) {
+    const context = {
+      addToRoot,
+      svgRoot,
+      root,
+      element,
+      offsetX,
+      offsetY,
+      degree,
+      cx,
+      cy,
+      renderConfig,
+    };
+    // ymjr: notify the host after SVG element rendering.
+    await core.dispatchAsync("renderElementToSvg", context);
+  }
 };
 
-export const renderSceneToSvg = (
+export const renderSceneToSvg = async (
   elements: readonly NonDeletedExcalidrawElement[],
   elementsMap: RenderableElementsMap,
   rsvg: RoughSVG,
@@ -927,75 +971,70 @@ export const renderSceneToSvg = (
     return;
   }
 
-  // render elements
-  elements
-    .filter((el) => !isIframeLikeElement(el))
-    .forEach((element) => {
-      if (!element.isDeleted) {
-        if (
-          isTextElement(element) &&
-          element.containerId &&
-          elementsMap.has(element.containerId)
-        ) {
-          // will be rendered with the container
-          return;
-        }
+  // ymjr: Use for...of to preserve stacking order and await SVG rendering
+  const normalElements = elements.filter((el) => !isIframeLikeElement(el));
+  for (const element of normalElements) {
+    if (!element.isDeleted) {
+      if (
+        isTextElement(element) &&
+        element.containerId &&
+        elementsMap.has(element.containerId)
+      ) {
+        continue; // will be rendered with the container
+      }
 
-        try {
-          renderElementToSvg(
-            element,
+      try {
+        await renderElementToSvg(
+          // ymjr: await async SVG rendering
+          element,
+          elementsMap,
+          rsvg,
+          svgRoot,
+          files,
+          element.x + renderConfig.offsetX,
+          element.y + renderConfig.offsetY,
+          renderConfig,
+        );
+
+        const boundTextElement = getBoundTextElement(element, elementsMap);
+        if (boundTextElement) {
+          await renderElementToSvg(
+            // ymjr: await async SVG rendering
+            boundTextElement,
             elementsMap,
             rsvg,
             svgRoot,
             files,
-            element.x + renderConfig.offsetX,
-            element.y + renderConfig.offsetY,
+            boundTextElement.x + renderConfig.offsetX,
+            boundTextElement.y + renderConfig.offsetY,
             renderConfig,
           );
-
-          const boundTextElement = getBoundTextElement(element, elementsMap);
-          if (boundTextElement?.isDeleted === false) {
-            renderElementToSvg(
-              boundTextElement as Readonly<NonDeletedExcalidrawElement>,
-              elementsMap,
-              rsvg,
-              svgRoot,
-              files,
-              boundTextElement.x + renderConfig.offsetX,
-              boundTextElement.y + renderConfig.offsetY,
-              renderConfig,
-            );
-          } else if (boundTextElement) {
-            // SAFETY: This should never happen, but log it just in case
-            console.error(
-              "[NONDELETED][INVARIANT] Skipped rendering deleted bound text element",
-            );
-          }
-        } catch (error: any) {
-          console.error(error);
         }
+      } catch (error: any) {
+        console.error(error);
       }
-    });
+    }
+  }
 
   // render embeddables on top
-  elements
-    .filter((el) => isIframeLikeElement(el))
-    .forEach((element) => {
-      if (!element.isDeleted) {
-        try {
-          renderElementToSvg(
-            element,
-            elementsMap,
-            rsvg,
-            svgRoot,
-            files,
-            element.x + renderConfig.offsetX,
-            element.y + renderConfig.offsetY,
-            renderConfig,
-          );
-        } catch (error: any) {
-          console.error(error);
-        }
+  const iframeElements = elements.filter((el) => isIframeLikeElement(el));
+  for (const element of iframeElements) {
+    if (!element.isDeleted) {
+      try {
+        await renderElementToSvg(
+          // ymjr: await async SVG rendering
+          element,
+          elementsMap,
+          rsvg,
+          svgRoot,
+          files,
+          element.x + renderConfig.offsetX,
+          element.y + renderConfig.offsetY,
+          renderConfig,
+        );
+      } catch (error: any) {
+        console.error(error);
       }
-    });
+    }
+  }
 };

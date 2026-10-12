@@ -72,6 +72,7 @@ export type ActionName =
   | "changeStrokeStyle"
   | "changeArrowhead"
   | "changeArrowType"
+  | "changeArrowheadSize" //ymjr
   | "changeArrowProperties"
   | "changeOpacity"
   | "changeFontSize"
@@ -106,6 +107,11 @@ export type ActionName =
   | "goToCollaborator"
   | "addToLibrary"
   | "changeRoundness"
+  | "changeRoundnessValue" //ymjr
+  | "changeRoundnessType" //ymjr
+  | "changeStrokeLineCap" //ymjr
+  | "changeStrokeLineJoin" //ymjr
+  | "changeSnapProp" //ymjr
   | "alignTop"
   | "alignBottom"
   | "alignLeft"

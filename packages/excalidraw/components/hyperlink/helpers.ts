@@ -30,8 +30,11 @@ export const getLinkHandleFromCoords = (
   [x1, y1, x2, y2]: Bounds,
   angle: Radians,
   appState: Pick<AppState, "zoom">,
+  customSize: number = 0, //ymjr
+  offsetX: number = 0, //ymjr
+  offsetY: number = 0, //ymjr
 ): Bounds => {
-  const size = DEFAULT_LINK_SIZE;
+  const size = customSize || DEFAULT_LINK_SIZE; //ymjr
   const zoom = appState.zoom.value > 1 ? appState.zoom.value : 1;
   const linkWidth = size / zoom;
   const linkHeight = size / zoom;
@@ -42,8 +45,8 @@ export const getLinkHandleFromCoords = (
   const dashedLineMargin = 4 / zoom;
 
   // Same as `ne` resize handle
-  const x = x2 + dashedLineMargin - centeringOffset;
-  const y = y1 - dashedLineMargin - linkMarginY + centeringOffset;
+  const x = x2 + dashedLineMargin - centeringOffset + offsetX; //ymjr
+  const y = y1 - dashedLineMargin - linkMarginY + centeringOffset + offsetY; //ymjr
 
   const [rotatedX, rotatedY] = pointRotateRads(
     pointFrom(x + linkWidth / 2, y + linkHeight / 2),
@@ -87,7 +90,10 @@ export const isPointHittingLink = (
   isMobile: boolean,
 ) => {
   //zsviczian, added hasTextLink
-  if (!(element.link || element.hasTextLink) || appState.selectedElementIds[element.id]) {
+  if (
+    !(element.link || element.hasTextLink) ||
+    appState.selectedElementIds[element.id]
+  ) {
     return false;
   }
   if (

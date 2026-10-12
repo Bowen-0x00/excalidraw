@@ -197,7 +197,9 @@ export const isBindableElement = <T extends ExcalidrawElement>(
       element.type === "embeddable" ||
       element.type === "frame" ||
       element.type === "magicframe" ||
-      (element.type === "text" && !element.containerId))
+      (element.type === "text" && !element.containerId) ||
+      element.type === "line") && //ymjr
+    !element?.customData?.nobind //ymjr
   );
 };
 

@@ -74,6 +74,9 @@ import type { isOverScrollBars } from "./scene/scrollbars";
 import type React from "react";
 import type { JSX } from "react";
 
+import type { ShapeCache } from "../element/src/shape"; //ymjr
+import type { elementWithCanvasCache } from "../element/src/renderElement"; //ymjr
+
 export type { App };
 
 export type SocketId = string & { _brand: "SocketId" };
@@ -465,10 +468,12 @@ export interface AppState {
   currentItemTextAlign: TextAlign;
   currentItemStartArrowhead: Arrowhead | null;
   currentItemEndArrowhead: Arrowhead | null;
+  currentItemArrowHeadSize: number; // ymjr
   currentHoveredFontFamily: FontFamilyValues | null;
   currentItemRoundness: StrokeRoundness;
-  currentItemArrowType: "sharp" | "round" | "elbow";
+  currentItemArrowType: "sharp" | "round" | "elbow" | "curve"; //ymjr
   currentItemFrameRole: ExcalidrawFrameLikeElement["frameRole"] | null; //zsviczian
+  currentItemSnap: string; //ymjr
   viewBackgroundColor: string;
   scrollX: number;
   scrollY: number;
@@ -1238,7 +1243,7 @@ export type AppProps = Merge<
     aiEnabled: boolean;
   }
 >;
-
+export type GifFrame = { bitmap: ImageBitmap; delay: number }; //ymjr
 /** A subset of App class properties that we need to use elsewhere
  * in the app, eg Manager. Factored out into a separate type to keep DRY. */
 export type AppClassProperties = {
@@ -1258,6 +1263,8 @@ export type AppClassProperties = {
     {
       image: HTMLImageElement | Promise<HTMLImageElement>;
       mimeType: ValueOf<typeof IMAGE_MIME_TYPES>;
+      isAnimated?: boolean; //ymjr
+      frames?: GifFrame[] | Promise<GifFrame[]> | undefined; //ymjr
     }
   >;
   files: BinaryFiles;
@@ -1427,7 +1434,9 @@ export interface ExcalidrawImperativeAPI {
     undo: InstanceType<typeof App>["undo"]; //zsviczian
     redo: InstanceType<typeof App>["redo"]; //zsviczian
   };
-  setForceRenderAllEmbeddables: InstanceType<typeof App>["setForceRenderAllEmbeddables"]; //zsviczian
+  setForceRenderAllEmbeddables: InstanceType<
+    typeof App
+  >["setForceRenderAllEmbeddables"]; //zsviczian
   zoomToFit: InstanceType<typeof App>["zoomToFit"]; //zsviczian
   refreshEditorInterface: InstanceType<typeof App>["refreshEditorInterface"]; //zsviczian
   isTouchScreen: InstanceType<typeof App>["isTouchScreen"]; //zsviczian
@@ -1528,6 +1537,9 @@ export interface ExcalidrawImperativeAPI {
   onUserFollow: (
     callback: (payload: OnUserFollowedPayload) => void,
   ) => UnsubscribeCallback;
+  App: InstanceType<typeof App>; //ymjr
+  ShapeCache: ShapeCache; //ymjr
+  elementWithCanvasCache: typeof elementWithCanvasCache; //ymjr
   onStateChange: InstanceType<typeof App>["onStateChange"];
   onEvent: InstanceType<typeof App>["onEvent"];
 }

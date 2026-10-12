@@ -6,6 +6,8 @@ import {
   BUCKET_FILL_BACKGROUND_PICKS,
   COLOR_PALETTE,
   DEFAULT_ELEMENT_BACKGROUND_COLOR_PALETTE,
+  DEFAULT_ADAPTIVE_RADIUS, //ymjr
+  DEFAULT_PROPORTIONAL_RADIUS, //ymjr
   ARROW_TYPE,
   DEFAULT_FONT_FAMILY,
   DEFAULT_FONT_SIZE,
@@ -154,11 +156,28 @@ import {
   ArrowheadCardinalityOneOrManyIcon,
   ArrowheadCardinalityZeroOrManyIcon,
   ArrowheadCardinalityZeroOrOneIcon,
+  ArrowheadChevronIcon, //ymjr
+  ArrowheadChevronOutlineIcon, //ymjr
+  ArrowheadBlockArrowIcon, //ymjr
+  ArrowheadBlockArrowOutlineIcon, //ymjr
   markerFrameIcon,
   strokeVariabilityConstantIcon,
   strokeVariabilityVariableIcon,
   StrokeWidthExtraThinIcon,
   FontSizeExtraSmallIcon,
+  BezierCurveIcon, //ymjr
+  ArcCurveIcon, //ymjr
+  NoneIcon, //ymjr
+  ButtCapIcon, //ymjr
+  RoundCapIcon, //ymjr
+  SquareCapIcon, //ymjr
+  MiterJoinIcon, //ymjr
+  BevelJoinIcon, //ymjr
+  RoundJoinIcon, //ymjr
+  NoSnapIcon, //ymjr
+  SnapPointIcon, //ymjr
+  SnapEdgeIcon, //ymjr
+  curveArrowIcon, //ymjr
 } from "../components/icons";
 
 import { Fonts } from "../fonts";
@@ -169,6 +188,8 @@ import {
   getTargetElements,
   isSomeElementSelected,
 } from "../scene";
+
+import { ShapeCache } from "../../element/src/shape"; //ymjr
 
 import { isFullPanelMode, t2 } from "../obsidianUtils";
 import {
@@ -814,6 +835,33 @@ export const actionChangeStrokeWidth = register<StrokeWidthKey>({
           onChange={(value) => updateData(value)}
         />
       </div>
+      {/*ymjr++>>>*/}
+      <input
+        type="range"
+        min={
+          (window as any)?.ExcalidrawAutomate?.plugin?.settings
+            ?.strokeWidthSliderMin ?? "0"
+        }
+        max={
+          (window as any)?.ExcalidrawAutomate?.plugin?.settings
+            ?.strokeWidthSliderMax ?? "100"
+        }
+        step={
+          (window as any)?.ExcalidrawAutomate?.plugin?.settings
+            ?.strokeWidthSliderStep ?? "1"
+        }
+        onChange={(event) => updateData(+event.target.value)}
+        value={
+          getFormValue(
+            elements,
+            app,
+            (element) => element.strokeWidth,
+            true,
+            appState.currentItemStrokeWidth,
+          ) ?? undefined
+        }
+      />
+      {/*ymjr+<<<*/}
     </fieldset>
   ),
 });
@@ -1081,8 +1129,8 @@ const fibonacciValues = [
 //zsviczian
 const normalValues = [
   [
-    136.67, 91.13, 60.74, 40.51, 26.98, 18.01, 12, 8.01, 5.34, 3.54, 2.36,
-    1.59, 1.04, 0.72, 0.48,
+    136.67, 91.13, 60.74, 40.51, 26.98, 18.01, 12, 8.01, 5.34, 3.54, 2.36, 1.59,
+    1.04, 0.72, 0.48,
   ],
   [
     182.22, 121.46, 80, 53, 35.99, 23.96, 16, 10.68, 7.1, 4.74, 3.16, 2.11,
@@ -1257,28 +1305,36 @@ export const actionChangeFontSize = register<ExcalidrawTextElement["fontSize"]>(
               options={[
                 {
                   value: FONT_SIZES.xs,
-                  text: `${t("labels.extraSmall")}\nSHIFT: zoomed, ALT/OPT: Fibonacci`, //zsviczian
+                  text: `${t(
+                    "labels.extraSmall",
+                  )}\nSHIFT: zoomed, ALT/OPT: Fibonacci`, //zsviczian
                   icon: FontSizeExtraSmallIcon,
                   testId: "fontSize-extraSmall",
                   active: isExtraSmall ? true : undefined, //zsviczian
                 },
                 {
                   value: FONT_SIZES.sm,
-                  text: `${t("labels.small")}\nSHIFT: zoomed, ALT/OPT: Fibonacci`, //zsviczian
+                  text: `${t(
+                    "labels.small",
+                  )}\nSHIFT: zoomed, ALT/OPT: Fibonacci`, //zsviczian
                   icon: FontSizeSmallIcon,
                   testId: "fontSize-small",
                   active: isSmall ? true : undefined, //zsviczian
                 },
                 {
                   value: FONT_SIZES.md,
-                  text: `${t("labels.medium")}\nSHIFT: zoomed, ALT/OPT: Fibonacci`, //zsviczian
+                  text: `${t(
+                    "labels.medium",
+                  )}\nSHIFT: zoomed, ALT/OPT: Fibonacci`, //zsviczian
                   icon: FontSizeMediumIcon,
                   testId: "fontSize-medium",
                   active: isMedium ? true : undefined, //zsviczian
                 },
                 {
                   value: FONT_SIZES.lg,
-                  text: `${t("labels.large")}\nSHIFT: zoomed, ALT/OPT: Fibonacci`, //zsviczian
+                  text: `${t(
+                    "labels.large",
+                  )}\nSHIFT: zoomed, ALT/OPT: Fibonacci`, //zsviczian
                   icon: FontSizeLargeIcon,
                   testId: "fontSize-large",
                   active: isLarge ? true : undefined, //zsviczian
@@ -1348,7 +1404,7 @@ export const actionChangeFontSize = register<ExcalidrawTextElement["fontSize"]>(
         </fieldset>
       );
     },
-  }
+  },
 );
 
 export const actionDecreaseFontSize = register({
@@ -1616,7 +1672,7 @@ export const actionChangeFontFamily = register<{
   },
   PanelComponent: ({ elements, appState, app, updateData }) => {
     const cachedElementsRef = useRef<ElementsMap>(new Map());
-    const prevSelectedFontFamilyRef = useRef<number | null>(null);
+    const prevSelectedFontFamilyRef = useRef<number | string | null>(null); //ymjr
     // relying on state batching as multiple `FontPicker` handlers could be called in rapid succession and we want to combine them
     const [batchedData, setBatchedData] = useState<ChangeFontFamilyData>({});
     const isUnmounted = useRef(true);
@@ -1690,7 +1746,6 @@ export const actionChangeFontFamily = register<{
         isUnmounted.current = true;
       };
     }, []);
-
     return (
       <>
         {isFullPanelMode(app) && ( //zsviczian
@@ -2191,6 +2246,37 @@ const getArrowheadOptions = (flip: boolean) => {
           },
         ],
       },
+      // ymjr: Wrap custom arrowheads in Section object
+      {
+        name: "custom",
+        options: [
+          {
+            value: "chevron",
+            text: t("labels.arrowhead_chevron"),
+            icon: <ArrowheadChevronIcon flip={flip} />,
+            keyBinding: "t",
+          },
+          {
+            value: "chevron_outline",
+            text: t("labels.arrowhead_chevron_outline"),
+            icon: <ArrowheadChevronOutlineIcon flip={flip} />,
+            keyBinding: "y",
+          },
+          {
+            value: "block_arrow",
+            text: t("labels.arrowhead_block_arrow"),
+            icon: <ArrowheadBlockArrowIcon flip={flip} />,
+            keyBinding: "b", // Shortcut B (Block)
+          },
+          {
+            value: "block_arrow_outline",
+            text: t("labels.arrowhead_block_arrow_outline"),
+            icon: <ArrowheadBlockArrowOutlineIcon flip={flip} />,
+            keyBinding: "n",
+          },
+        ],
+      },
+      // ymjr
     ],
   } as const;
 };
@@ -2366,6 +2452,16 @@ export const actionChangeArrowType = register<keyof typeof ARROW_TYPE>({
             : el.points,
       });
 
+      if (value === ARROW_TYPE.curve) {
+        //ymjr
+        //@ts-ignore
+        newElement.customData = { ...newElement.customData, curveArrow: true };
+      } else {
+        if (newElement?.customData?.curveArrow) {
+          delete newElement.customData.curveArrow;
+        }
+      }
+
       if (isElbowArrow(newElement)) {
         newElement.fixedSegments = null;
 
@@ -2524,6 +2620,13 @@ export const actionChangeArrowType = register<keyof typeof ARROW_TYPE>({
                 icon: elbowArrowIcon,
                 testId: "elbow-arrow",
               },
+              {
+                //ymjr
+                value: ARROW_TYPE.curve,
+                text: t("labels.arrowtype_curve"),
+                icon: curveArrowIcon,
+                testId: "curve-arrow",
+              },
             ]}
             value={getFormValue(
               elements,
@@ -2534,6 +2637,8 @@ export const actionChangeArrowType = register<keyof typeof ARROW_TYPE>({
                     ? ARROW_TYPE.elbow
                     : element.roundness
                     ? ARROW_TYPE.round
+                    : element?.customData?.curveArrow //ymjr
+                    ? ARROW_TYPE.curve //ymjr
                     : ARROW_TYPE.sharp;
                 }
 
@@ -2551,6 +2656,68 @@ export const actionChangeArrowType = register<keyof typeof ARROW_TYPE>({
   },
 });
 
+//ymjr
+// ymjr: expose custom arrowhead scaling in the properties panel.
+export const actionChangeArrowheadSize = register({
+  name: "changeArrowheadSize",
+  label: "Change arrowhead size",
+  trackEvent: false,
+  perform: (elements, appState, value, app) => {
+    return {
+      elements: changeProperty(elements, appState, (el) => {
+        if (isArrowElement(el)) {
+          const size = value;
+          ShapeCache.delete(el);
+          // @ts-ignore
+          el.customData = {
+            ...el.customData,
+            arrowHeadSize: size,
+          };
+          return el;
+        }
+
+        return el;
+      }),
+      appState: {
+        ...appState,
+        currentItemArrowheadSize: value,
+      },
+      captureUpdate: CaptureUpdateAction.IMMEDIATELY,
+    };
+  },
+  PanelComponent: ({ elements, appState, updateData, app }) => {
+    const isRTL = getLanguage().rtl;
+
+    return (
+      <fieldset>
+        <legend>{"Arrowhead size"}</legend>
+        <input
+          type="range"
+          min={-3}
+          max={3}
+          step={0.25}
+          onChange={(event) =>
+            updateData(Math.pow(2, parseFloat(event.target.value)))
+          }
+          value={
+            getFormValue(
+              elements,
+              app,
+              (element) =>
+                canHaveArrowheads(element.type) &&
+                element?.customData?.arrowHeadSize
+                  ? Math.log2(element.customData.arrowHeadSize)
+                  : appState.currentItemArrowHeadSize,
+              true,
+              appState.currentItemArrowHeadSize,
+            ) ?? undefined
+          }
+        />
+      </fieldset>
+    );
+  },
+});
+
 // zsviczian
 export const actionToggleFrameRole = register({
   name: "toggleFrameRole",
@@ -2562,7 +2729,8 @@ export const actionToggleFrameRole = register({
     const frames = selected.filter(
       (el) => el.type === "frame",
     ) as ExcalidrawFrameElement[];
-    const onlyFramesSelected = selected.length > 0 && selected.length === frames.length;
+    const onlyFramesSelected =
+      selected.length > 0 && selected.length === frames.length;
 
     if (onlyFramesSelected) {
       const selectedIds = new Set(selected.map((el) => el.id));
@@ -2602,7 +2770,7 @@ export const actionToggleFrameRole = register({
     };
   },
   predicate: (_elements, appState, _props, app) => {
-    if(appState.activeTool.type === "frame") {
+    if (appState.activeTool.type === "frame") {
       return true;
     }
     const selected = app.scene.getSelectedElements(appState);
@@ -2616,7 +2784,8 @@ export const actionToggleFrameRole = register({
     const frames = selected.filter(
       (el) => el.type === "frame",
     ) as ExcalidrawFrameElement[];
-    const onlyFramesSelected = selected.length > 0 && selected.length === frames.length;
+    const onlyFramesSelected =
+      selected.length > 0 && selected.length === frames.length;
 
     const isMarker = onlyFramesSelected
       ? frames.every((el) => el.frameRole === "marker")
@@ -2642,6 +2811,331 @@ export const actionToggleFrameRole = register({
           })
         }
       />
+    );
+  },
+});
+
+export const actionChangeRoundnessValue = register({
+  name: "changeRoundnessValue",
+  label: "Change roundness value",
+  trackEvent: false,
+  perform: (elements, appState, value, app) => {
+    return {
+      elements: changeProperty(elements, appState, (el) => {
+        // @ts-ignore
+        if (el?.roundness?.type || (el.type === "arrow" && el?.elbowed)) {
+          if (!el?.roundness) {
+            // @ts-ignore
+            el.roundness = { type: ROUNDNESS.ADAPTIVE_RADIUS, value: 0 };
+          }
+          ShapeCache.delete(el);
+          el.roundness.value =
+            Math.min(el.width, el.height) * Number(value) * 0.01;
+          return el;
+        }
+        return el;
+      }),
+      captureUpdate: CaptureUpdateAction.IMMEDIATELY,
+    };
+  },
+  PanelComponent: ({ elements, appState, updateData, app }) => {
+    return (
+      <fieldset>
+        <legend>{"Roundness value"}</legend>
+        <input
+          type="range"
+          min={0}
+          max={50}
+          step={1}
+          onChange={(event) => updateData(event.target.value)}
+          value={
+            getFormValue(
+              elements,
+              app,
+              (element) =>
+                ((element?.roundness?.value
+                  ? element.roundness.value
+                  : element.roundness?.type === ROUNDNESS.PROPORTIONAL_RADIUS ||
+                    element.roundness?.type === ROUNDNESS.LEGACY
+                  ? DEFAULT_PROPORTIONAL_RADIUS
+                  : element.roundness?.type === ROUNDNESS.ADAPTIVE_RADIUS
+                  ? DEFAULT_ADAPTIVE_RADIUS
+                  : 0) /
+                  Math.min(element.width, element.height)) *
+                100,
+              true,
+              0,
+            ) ?? undefined
+          }
+        />
+      </fieldset>
+    );
+  },
+});
+
+export const actionChangeRoundnessType = register<"bezier" | "arc">({
+  name: "changeRoundnessType",
+  label: "Change roundness type",
+  trackEvent: false,
+  perform: (elements, appState, value) => {
+    return {
+      elements: changeProperty(elements, appState, (el) => {
+        if (!el.roundness) {
+          return el;
+        }
+        const nextElement = newElementWith(el, {
+          roundness: { ...el.roundness, roundType: value },
+        });
+        ShapeCache.delete(nextElement);
+        return nextElement;
+      }),
+      captureUpdate: CaptureUpdateAction.IMMEDIATELY,
+    };
+  },
+  PanelComponent: ({ elements, appState, updateData, app, renderAction }) => {
+    return (
+      <fieldset>
+        <legend>{"Roundness type"}</legend>
+        <div className="buttonList">
+          <RadioSelection
+            group="RoundnessType"
+            options={[
+              {
+                value: "bezier",
+                text: "bezier curve",
+                icon: BezierCurveIcon,
+              },
+              {
+                value: "arc",
+                text: "arc curve",
+                icon: ArcCurveIcon,
+              },
+            ]}
+            value={
+              getFormValue(
+                elements,
+                app,
+                (element) => element.roundness?.roundType ?? "bezier",
+                true,
+                "bezier",
+              ) ?? undefined
+            }
+            onChange={(value) => updateData(value)}
+          />
+        </div>
+      </fieldset>
+    );
+  },
+});
+
+// ymjr: Stroke line cap style: butt / round / square
+export const actionChangeStrokeLineCap = register({
+  name: "changeStrokeLineCap",
+  label: "Change stroke line cap",
+  trackEvent: false,
+  perform: (elements, appState, value) => {
+    return {
+      elements: changeProperty(elements, appState, (el) => {
+        if (!el) {
+          return el;
+        }
+
+        // Ensure customData object exists
+        if (!el.customData) {
+          // @ts-ignore
+          el.customData = {};
+        }
+
+        if (value === "none") {
+          // If None is selected, delete property
+          // @ts-ignore
+          delete el.customData.strokeLineCap;
+
+          // Optional: if customData is empty, delete customData itself
+          // if (Object.keys(el.customData).length === 0) {
+          //   delete el.customData;
+          // }
+        } else {
+        // Otherwise assign value
+          // @ts-ignore
+          el.customData.strokeLineCap = value;
+        }
+
+        ShapeCache.delete(el);
+        return el;
+      }),
+      captureUpdate: CaptureUpdateAction.IMMEDIATELY,
+    };
+  },
+  PanelComponent: ({ elements, appState, updateData, app }) => {
+    return (
+      <fieldset>
+        <legend>{"Stroke line cap"}</legend>
+        <div className="buttonList">
+          <RadioSelection
+            group="StrokeLineCap"
+            options={[
+              { value: "none", text: "None", icon: NoneIcon }, // None option
+              { value: "butt", text: "Butt", icon: ButtCapIcon },
+              { value: "round", text: "Round", icon: RoundCapIcon },
+              { value: "square", text: "Square", icon: SquareCapIcon },
+            ]}
+            value={
+              getFormValue(
+                elements,
+                app,
+                (element) =>
+                  // Return value if set, fallback to "none"
+                  (element?.customData as any)?.strokeLineCap ?? "none",
+                true, // Allow mixed state
+                "none", // Fallback default none
+              ) ?? undefined
+            }
+            onChange={(value) => updateData(value)}
+          />
+        </div>
+      </fieldset>
+    );
+  },
+});
+
+// -----------------------------------------------------------------------------
+
+export const actionChangeStrokeLineJoin = register({
+  name: "changeStrokeLineJoin",
+  label: "Change stroke line join",
+  trackEvent: false,
+  perform: (elements, appState, value) => {
+    return {
+      elements: changeProperty(elements, appState, (el) => {
+        if (!el) {
+          return el;
+        }
+
+        if (!el.customData) {
+          // @ts-ignore
+          el.customData = {};
+        }
+
+        if (value === "none") {
+          // If None is selected, delete property
+          // @ts-ignore
+          delete el.customData.strokeLineJoin;
+        } else {
+        // Otherwise assign value
+          // @ts-ignore
+          el.customData.strokeLineJoin = value;
+        }
+
+        ShapeCache.delete(el);
+        return el;
+      }),
+      captureUpdate: CaptureUpdateAction.IMMEDIATELY,
+    };
+  },
+  PanelComponent: ({ elements, appState, updateData, app }) => {
+    return (
+      <fieldset>
+        <legend>{"Stroke line join"}</legend>
+        <div className="buttonList">
+          <RadioSelection
+            group="StrokeLineJoin"
+            options={[
+              { value: "none", text: "None", icon: NoneIcon }, // None option
+              { value: "miter", text: "Miter", icon: MiterJoinIcon },
+              { value: "round", text: "Round", icon: RoundJoinIcon },
+              { value: "bevel", text: "Bevel", icon: BevelJoinIcon },
+            ]}
+            value={
+              getFormValue(
+                elements,
+                app,
+                (element) =>
+                  // Return value if set, fallback to "none"
+                  (element?.customData as any)?.strokeLineJoin ?? "none",
+                true,
+                "none",
+              ) ?? undefined
+            }
+            onChange={(value) => updateData(value)}
+          />
+        </div>
+      </fieldset>
+    );
+  },
+});
+
+//ymjr
+import React from "react";
+export const actionChangeSnapProp = register({
+  name: "changeSnapProp",
+  label: "Snap Mode",
+  trackEvent: false,
+  perform: (elements, appState, value) => {
+    const snapValue = value as string;
+
+    const newElements = changeProperty(elements, appState, (el) => {
+      if (!el) return el;
+      const newCustomData = el.customData ? { ...el.customData } : {};
+      if (value === "none") {
+        delete newCustomData.snap;
+      } else {
+        newCustomData.snap = value;
+      }
+      const newEl = newElementWith(el, { customData: newCustomData });
+      ShapeCache.delete(newEl);
+      return newEl;
+    });
+
+    return {
+      elements: newElements,
+      appState: { currentItemSnap: snapValue },
+      captureUpdate: CaptureUpdateAction.IMMEDIATELY,
+    };
+  },
+
+  PanelComponent: ({ elements, appState, updateData, app }) => {
+    const currentValue = getFormValue(
+      elements,
+      app,
+      (element) => {
+        const snap = (element?.customData as any)?.snap;
+        if (snap === true) return "points";
+        return snap || "none";
+      },
+      (element) => true,
+      (hasSelection) =>
+        hasSelection ? "none" : appState.currentItemSnap || "none",
+    );
+
+    return (
+      <fieldset>
+        <legend>{"Snap Points"}</legend>
+        <div
+          className="buttonList"
+          // Prevent native focus behavior to avoid scroll bug
+          onPointerDown={(e) => e.preventDefault()}
+        >
+          {[
+            { value: "none", text: "Off", icon: NoSnapIcon },
+            { value: "points", text: "Points", icon: SnapPointIcon },
+            { value: "edge", text: "Edge", icon: SnapEdgeIcon },
+          ].map((option) => (
+            // Lightweight native button matching underlying CSS
+            <button
+              key={option.value}
+              type="button"
+              // Active class triggers blue highlight
+              className={currentValue === option.value ? "active" : ""}
+              title={option.text}
+              aria-label={option.text}
+              onClick={() => updateData(option.value)}
+            >
+              {option.icon}
+            </button>
+          ))}
+        </div>
+      </fieldset>
     );
   },
 });

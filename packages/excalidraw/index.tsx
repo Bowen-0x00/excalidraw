@@ -452,7 +452,10 @@ export {
 
 export { getCommonBoundingBox } from "@excalidraw/element/bounds"; //zsviczian
 export { getMaximumGroups } from "@excalidraw/element/groups"; //zsviczian
-export { measureText } from "@excalidraw/element/textMeasurements"; //zsviczian
+export {
+  measureText,
+  /*ymjr*/ getTextHeight,
+} from "@excalidraw/element/textMeasurements"; //zsviczian
 export { wrapText } from "@excalidraw/element/textWrapping"; //zsviczian
 export { getLineHeight } from "@excalidraw/common"; //zsviczian
 export { getFontString, getFontFamilyString } from "@excalidraw/common"; //zsviczian
@@ -467,9 +470,11 @@ export {
   loadSceneFonts,
   getDefaultColorPalette,
   getSharedMermaidInstance,
+  getCSSFontDefinition2, //ymjr
   loadMermaid,
   intersectElementWithLine,
 } from "../excalidraw/obsidianUtils"; //zsviczian
+export { isSafari } from "@excalidraw/common"; //ymjr
 
 export { refreshTextDimensions } from "@excalidraw/element/newElement"; //zsviczian
 
@@ -567,6 +572,8 @@ export { isElementLink } from "@excalidraw/element";
 export { Fonts } from "./fonts/Fonts";
 
 export { setCustomTextMetricsProvider } from "@excalidraw/element";
+
+export { updateElbowArrowPoints } from "@excalidraw/element/elbowArrow"; //ymjr
 
 export { CommandPalette } from "./components/CommandPalette/CommandPalette";
 

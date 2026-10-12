@@ -75,6 +75,7 @@ import { isArrowElement, isBindingElement, isElbowArrow } from "./typeChecks";
 import { ShapeCache, toggleLinePolygonState } from "./shape";
 
 import { getLockedLinearCursorAlignSize } from "./sizeHelpers";
+import { getArrowheadSize } from "./bounds"; //ymjr
 
 import { isLineElement } from "./typeChecks";
 
@@ -537,6 +538,8 @@ export class LinearElementEditor {
     // Determine if point movement should happen and how much
     let deltaX = 0;
     let deltaY = 0;
+    let hookPointRef: any; /*ymjr*/
+
     if (shouldRotateWithDiscreteAngle(event) && singlePointDragged) {
       const [width, height] = LinearElementEditor._getShiftLockedDelta(
         element,
@@ -552,6 +555,7 @@ export class LinearElementEditor {
       );
       deltaX = target[0] - draggingPoint[0];
       deltaY = target[1] - draggingPoint[1];
+      hookPointRef = pivotPoint; /*ymjr: save referencePoint for hook*/
     } else {
       const newDraggingPointPosition = LinearElementEditor.createPointAt(
         element,
@@ -562,6 +566,8 @@ export class LinearElementEditor {
       );
       deltaX = newDraggingPointPosition[0] - draggingPoint[0];
       deltaY = newDraggingPointPosition[1] - draggingPoint[1];
+      hookPointRef =
+        newDraggingPointPosition; /*ymjr: save newDraggingPointPosition for hook*/
     }
 
     // Apply the point movement if needed
@@ -600,6 +606,20 @@ export class LinearElementEditor {
           !app.state.gridModeEnabled,
       },
     );
+
+    // ymjr
+    // fir fixlength functionnality
+    // (window as any)?.handlePointDraggingHook?.(element, hookPointRef, draggingPoint, linearElementEditor, elementsMap);
+    const core = (window as any).EA_Core;
+    if (core) {
+      const isIntercepted = core.dispatchSync("handlePointDragging", {
+        element,
+        newDraggingPointPosition: hookPointRef,
+        draggingPoint,
+        linearElementEditor,
+        elementsMap,
+      });
+    }
 
     // Set the suggested binding from the updates if available
     if (isBindingElement(element, false)) {
@@ -2239,11 +2259,54 @@ export class LinearElementEditor {
     // first element is always the curve
     const ops = getCurvePathOps(shape[0]);
 
-    const [minX, minY, maxX, maxY] = getMinMaxXYFromCurvePathOps(ops);
-    const x1 = minX + element.x;
-    const y1 = minY + element.y;
-    const x2 = maxX + element.x;
-    const y2 = maxY + element.y;
+    let [minX, minY, maxX, maxY] = getMinMaxXYFromCurvePathOps(ops);
+    let x1 = 0,
+      x2 = 0,
+      y1 = 0,
+      y2 = 0;
+    if (element.type === "arrow") {
+      //ymjr
+      const arrowHeadScale = element.customData?.arrowHeadSize;
+      if (arrowHeadScale && arrowHeadScale !== 1 && element.points.length > 1) {
+        const arrowHeadSize =
+          getArrowheadSize(
+            element.endArrowhead || element.startArrowhead || "arrow",
+          ) * arrowHeadScale;
+        const endPoint = element.points[element.points.length - 1];
+        const startPoint = element.points[0];
+        const angle = Math.atan2(
+          element.points[element.points.length - 2][1] - endPoint[1],
+          endPoint[0] - element.points[element.points.length - 2][0],
+        );
+
+        if (element.endArrowhead) {
+          y1 = endPoint[1] - (Math.cos(angle) * arrowHeadSize) / 2;
+          y2 = endPoint[1] + (Math.cos(angle) * arrowHeadSize) / 2;
+          x1 = endPoint[0] - (Math.sin(angle) * arrowHeadSize) / 2;
+          x2 = endPoint[0] + (Math.sin(angle) * arrowHeadSize) / 2;
+          minX = Math.min(minX, x1, x2);
+          maxX = Math.max(maxX, x1, x2);
+          minY = Math.min(minY, y1, y2);
+          maxY = Math.max(maxY, y1, y2);
+        }
+
+        if (element.startArrowhead) {
+          y1 = startPoint[1] - (Math.cos(angle) * arrowHeadSize) / 2;
+          y2 = startPoint[1] + (Math.cos(angle) * arrowHeadSize) / 2;
+          x1 = startPoint[0] - (Math.sin(angle) * arrowHeadSize) / 2;
+          x2 = startPoint[0] + (Math.sin(angle) * arrowHeadSize) / 2;
+          minX = Math.min(minX, x1, x2);
+          maxX = Math.max(maxX, x1, x2);
+          minY = Math.min(minY, y1, y2);
+          maxY = Math.max(maxY, y1, y2);
+        }
+      }
+    }
+    x1 = minX + element.x;
+    y1 = minY + element.y;
+    x2 = maxX + element.x;
+    y2 = maxY + element.y;
+
     const cx = (x1 + x2) / 2;
     const cy = (y1 + y2) / 2;
 

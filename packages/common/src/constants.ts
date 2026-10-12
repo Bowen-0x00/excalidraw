@@ -165,7 +165,7 @@ export const FONT_FAMILY_FALLBACKS = {
 };
 
 export function getGenericFontFamilyFallback(
-  fontFamily: number,
+  fontFamily: number | string, //ymjr
 ): keyof typeof FONT_FAMILY_GENERIC_FALLBACKS {
   switch (fontFamily) {
     case FONT_FAMILY.Cascadia:
@@ -178,7 +178,7 @@ export function getGenericFontFamilyFallback(
 }
 
 export const getFontFamilyFallbacks = (
-  fontFamily: number,
+  fontFamily: number | string, //ymjr
 ): Array<keyof typeof FONT_FAMILY_FALLBACKS> => {
   const genericFallbackFont = getGenericFontFamilyFallback(fontFamily);
 
@@ -352,8 +352,8 @@ export const TITLE_TIMEOUT = 10000;
 export const VERSION_TIMEOUT = 30000;
 export const SCROLL_TIMEOUT = 100;
 export const ZOOM_STEP = 0.05; //zsviczian
-export const MIN_ZOOM = 0.1;
-export const MAX_ZOOM = 30;
+export const MIN_ZOOM = 0.03; //ymjr
+export const MAX_ZOOM = 30.0;
 export const HYPERLINK_TOOLTIP_DELAY = 300;
 
 // Report a user inactive after IDLE_THRESHOLD milliseconds
@@ -605,7 +605,12 @@ export const ROUGHNESS = {
   cartoonist: 2,
 } as const;
 
-export type StrokeWidthKey = "extraThin" | "thin" | "medium" | "bold" | "extraBold"; //zsviczian
+export type StrokeWidthKey =
+  | "extraThin"
+  | "thin"
+  | "medium"
+  | "bold"
+  | "extraBold"; //zsviczian
 
 export const STROKE_WIDTH_KEYS: readonly StrokeWidthKey[] = [
   "extraThin", //zsviczian
@@ -645,7 +650,8 @@ export const getStrokeWidthByKey = (
   strokeWidthKey: StrokeWidthKey,
   strokeWidth?: number, //zsviczian legacy strokewidth support used in custom pens
 ): ExcalidrawElement["strokeWidth"] => {
-  if (strokeWidth) { //zsviczian
+  if (strokeWidth) {
+    //zsviczian
     return strokeWidth;
   }
   return elementType === "freedraw"
@@ -686,7 +692,7 @@ export const DEFAULT_SIDEBAR = {
 export const LIBRARY_DISABLED_TYPES = new Set([
   "iframe",
   "embeddable",
-  "image",
+  // "image", //ymjr
 ] as const);
 
 // use these constants to easily identify reference sites
@@ -733,6 +739,7 @@ export const ARROW_TYPE: { [T in AppState["currentItemArrowType"]]: T } = {
   sharp: "sharp",
   round: "round",
   elbow: "elbow",
+  curve: "curve", //ymjr
 };
 
 export const DEFAULT_REDUCED_GLOBAL_ALPHA = 0.3;

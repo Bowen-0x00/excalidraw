@@ -91,6 +91,16 @@ export const redrawTextBoundingBox = (
     maxWidth = container
       ? getBoundTextMaxWidth(container, textElement)
       : textElement.width;
+
+    //ymjr
+    let hookCtx = {
+      textElement,
+      text: textElement.originalText,
+      indent: undefined as number | undefined,
+    };
+    const core = (window as any).EA_Core;
+    if (core) core.dispatchSync("beforeWrapText", hookCtx);
+
     boundTextUpdates.text = wrapText(
       textElement.originalText,
       getFontString(textElement),
@@ -110,6 +120,18 @@ export const redrawTextBoundingBox = (
   }
   boundTextUpdates.height = metrics.height;
 
+  // ymjr: Dispatch text measurement result to host plugin engine
+  const core = (window as any).EA_Core;
+  if (core) {
+    core.dispatchSync("afterMeasureTextBoundingBox", {
+      container,
+      metrics,
+      scene,
+      textElement,
+    });
+  }
+  // ymjr: End measurement dispatch
+
   if (container) {
     const maxContainerHeight = getBoundTextMaxHeight(
       container,
@@ -122,6 +144,7 @@ export const redrawTextBoundingBox = (
         metrics.height,
         container.type,
         container.customData?.legacyTextWrap, //zsviczian
+        container, //ymjr
       );
       scene.mutateElement(container, { height: nextHeight });
       updateOriginalContainerCache(container.id, nextHeight);
@@ -131,6 +154,8 @@ export const redrawTextBoundingBox = (
       const nextWidth = computeContainerDimensionForBoundText(
         metrics.width,
         container.type,
+        container.customData?.legacyTextWrap, //ymjr
+        container, //ymjr
       );
       scene.mutateElement(container, { width: nextWidth });
     }
@@ -190,6 +215,14 @@ export const handleBindTextResize = (
       (transformHandleType !== "n" && transformHandleType !== "s")
     ) {
       if (text) {
+        let hookCtx = {
+          textElement,
+          text: textElement.originalText,
+          indent: undefined as number | undefined,
+        };
+        const core = (window as any).EA_Core;
+        if (core) core.dispatchSync("beforeWrapText", hookCtx);
+
         text = wrapText(
           textElement.originalText,
           getFontString(textElement),
@@ -204,12 +237,24 @@ export const handleBindTextResize = (
       nextHeight = metrics.height;
       nextWidth = metrics.width;
     }
+
+    const core = (window as any).EA_Core;
+    if (core) {
+      core.dispatchSync("afterMeasureTextBoundingBox", {
+        container,
+        metrics: { width: nextWidth, height: nextHeight },
+        scene,
+        textElement,
+      });
+    }
+
     // increase height in case text element height exceeds
     if (nextHeight > maxHeight) {
       containerHeight = computeContainerDimensionForBoundText(
         nextHeight,
         container.type,
         container.customData?.legacyTextWrap, //zsviczian
+        container, //ymjr
       );
 
       // Crossing the opposite edge swaps the anchor for text-driven growth.
@@ -264,37 +309,61 @@ export const computeBoundTextPosition = (
   const maxContainerHeight = getBoundTextMaxHeight(container, boundTextElement);
   const maxContainerWidth = getBoundTextMaxWidth(container, boundTextElement);
 
-  let x;
-  let y;
-  if (boundTextElement.verticalAlign === VERTICAL_ALIGN.TOP) {
-    y = containerCoords.y;
-  } else if (boundTextElement.verticalAlign === VERTICAL_ALIGN.BOTTOM) {
-    y = containerCoords.y + (maxContainerHeight - boundTextElement.height);
-  } else if (isStickyNoteElement(container)) {
-    // a note's label body ends above the creation-date footer, but a label
-    // centered in that body sits visibly high — center it in the whole
-    // padded note while it stays clear of the footer, and only push it up
-    // against the body's bottom once it would overlap
-    const paddedHeight = container.height - STICKY_NOTE_PADDING * 2;
-    y =
-      containerCoords.y +
-      Math.min(
-        (paddedHeight - boundTextElement.height) / 2,
-        maxContainerHeight - boundTextElement.height,
-      );
-  } else {
-    y =
-      containerCoords.y +
-      (maxContainerHeight / 2 - boundTextElement.height / 2);
+  // ymjr
+  const hookCtx = {
+    container,
+    boundTextElement,
+    containerCoords,
+    y: undefined as number | undefined,
+    x: undefined as number | undefined,
+    headerOffset: 0,
+    stripOffset: 0,
+  };
+  // ymjr: allow the host to override bound-text positioning.
+  const core = (window as any).EA_Core;
+  core?.dispatchSync("computeBoundTextPosition", hookCtx);
+
+  let x = hookCtx.x;
+  let y = hookCtx.y;
+  if (y === undefined) {
+    if (boundTextElement.verticalAlign === VERTICAL_ALIGN.TOP) {
+      y = containerCoords.y;
+    } else if (boundTextElement.verticalAlign === VERTICAL_ALIGN.BOTTOM) {
+      y = containerCoords.y + (maxContainerHeight - boundTextElement.height);
+    } else if (isStickyNoteElement(container)) {
+      // a note's label body ends above the creation-date footer, but a label
+      // centered in that body sits visibly high — center it in the whole
+      // padded note while it stays clear of the footer, and only push it up
+      // against the body's bottom once it would overlap
+      const paddedHeight = container.height - STICKY_NOTE_PADDING * 2;
+      y =
+        containerCoords.y +
+        Math.min(
+          (paddedHeight - boundTextElement.height) / 2,
+          maxContainerHeight - boundTextElement.height,
+        );
+    } else {
+      y =
+        containerCoords.y +
+        (maxContainerHeight / 2 - boundTextElement.height / 2);
+    }
+    y += hookCtx.headerOffset;
   }
-  if (boundTextElement.textAlign === TEXT_ALIGN.LEFT) {
-    x = containerCoords.x;
-  } else if (boundTextElement.textAlign === TEXT_ALIGN.RIGHT) {
-    x = containerCoords.x + (maxContainerWidth - boundTextElement.width);
-  } else {
-    x =
-      containerCoords.x + (maxContainerWidth / 2 - boundTextElement.width / 2);
+
+  if (x === undefined) {
+    //ymjr
+    if (boundTextElement.textAlign === TEXT_ALIGN.LEFT) {
+      x = containerCoords.x;
+    } else if (boundTextElement.textAlign === TEXT_ALIGN.RIGHT) {
+      x = containerCoords.x + (maxContainerWidth - boundTextElement.width);
+    } else {
+      x =
+        containerCoords.x +
+        (maxContainerWidth / 2 - boundTextElement.width / 2);
+    }
+    x += hookCtx.stripOffset; // ymjr: Apply strip offset
   }
+
   const angle = (container.angle ?? 0) as Radians;
 
   if (angle !== 0) {
@@ -402,6 +471,7 @@ export const getContainerCoords = (container: ExcalidrawElement) => {
   let offsetX = padding;
   let offsetY = padding;
 
+  // ymjr: preserve legacy custom text wrapping.
   const legacy = container.customData?.legacyTextWrap; //zsviczian
 
   if (container.type === "ellipse" && !legacy) {
@@ -497,9 +567,21 @@ export const computeContainerDimensionForBoundText = (
   dimension: number,
   containerType: ExtractSetType<typeof VALID_CONTAINER_TYPES>,
   legacy: boolean = false, //zsviczian
+  container?: ExcalidrawElement, //ymjr
 ) => {
   dimension = Math.ceil(dimension);
   const padding = BOUND_TEXT_PADDING * 2;
+
+  // ymjr
+  let hookCtx = {
+    container,
+    dimension,
+    padding,
+    result: null as number | null,
+  };
+  const core = (window as any).EA_Core;
+  if (core) core.dispatchSync("computeContainerDimension", hookCtx);
+  if (hookCtx.result) return hookCtx.result;
 
   if (containerType === "ellipse" && !legacy) {
     //zsviczian
@@ -527,6 +609,18 @@ export const getBoundTextMaxWidth = (
     return Math.max(ARROW_LABEL_WIDTH_FRACTION * width, minWidth);
   }
 
+  let hookCtx = {
+    container,
+    boundTextElement,
+    width,
+    padding: BOUND_TEXT_PADDING,
+    result: null as number | null,
+  };
+  const core = (window as any).EA_Core;
+  if (core) core.dispatchSync("getBoundTextMaxWidth", hookCtx);
+  if (hookCtx.result !== null) return hookCtx.result;
+
+  // ymjr: preserve legacy custom text wrapping.
   const legacy = container.customData?.legacyTextWrap; //zsviczian
 
   if (container.type === "ellipse" && !legacy) {
@@ -565,6 +659,18 @@ export const getBoundTextMaxHeight = (
     }
     return height;
   }
+
+  // ymjr
+  let hookCtx = {
+    container,
+    boundTextElement,
+    height,
+    padding: BOUND_TEXT_PADDING,
+    result: null as number | null,
+  };
+  const core = (window as any).EA_Core;
+  if (core) core.dispatchSync("getBoundTextMaxHeight", hookCtx);
+  if (hookCtx.result !== null) return hookCtx.result;
 
   const legacy = container.customData?.legacyTextWrap; //zsviczian
 

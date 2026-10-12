@@ -55,6 +55,10 @@ import {
 import { renderSelectionElement } from "@excalidraw/element";
 
 import { getCommonBounds, getElementAbsoluteCoords } from "@excalidraw/element";
+
+import rough from "roughjs/bin/rough"; //ymjr
+import { getSnapCandidates } from "@excalidraw/element/binding"; //ymjr
+
 import {
   getGlobalFixedPointForBindableElement,
   isFocusPointVisible,
@@ -80,6 +84,7 @@ import type {
   NonDeleted,
   NonDeletedExcalidrawElement,
   NonDeletedSceneElementsMap,
+  ExcalidrawRectanguloidElement, //ymjr
 } from "@excalidraw/element/types";
 
 import { renderSnaps } from "../renderer/renderSnaps";
@@ -466,6 +471,20 @@ const renderBindingHighlightForBindableElement_simple = (
           }
 
           break;
+        case "line": {
+          //ymjr
+          const points = (suggestedBinding.element as ExcalidrawLinearElement)
+            .points;
+          if (points.length > 0) {
+            context.beginPath();
+            context.moveTo(points[0][0], points[0][1]);
+            for (let i = 1; i < points.length; i++) {
+              context.lineTo(points[i][0], points[i][1]);
+            }
+            context.stroke();
+          }
+          break;
+        }
         default:
           {
             const [segments, curves] = deconstructRectanguloidElement(
@@ -809,10 +828,24 @@ const renderBindingHighlightForBindableElement_complex = (
           }
 
           break;
+        case "line": {
+          //ymjr
+          const points = (element as ExcalidrawLinearElement).points;
+          if (points.length > 0) {
+            context.beginPath();
+            // Context was translated by -offset, compensate with +offset so lines draw at correct position
+            context.moveTo(points[0][0] + offset, points[0][1] + offset);
+            for (let i = 1; i < points.length; i++) {
+              context.lineTo(points[i][0] + offset, points[i][1] + offset);
+            }
+            context.stroke();
+          }
+          break;
+        }
         default:
           {
             const [segments, curves] = deconstructRectanguloidElement(
-              element,
+              element as ExcalidrawRectanguloidElement, //ymjr
               offset,
             );
 
@@ -1299,29 +1332,35 @@ const renderLinearPointHandles = (
       }
     });
   } else {
-    const midPoints = LinearElementEditor.getEditorMidPoints(
-      element,
-      elementsMap,
-      appState,
-    ).filter(
-      (midPoint, idx, midPoints): midPoint is GlobalPoint =>
-        midPoint !== null &&
-        !(isElbowArrow(element) && (idx === 0 || idx === midPoints.length - 1)),
-    );
+    if (!element?.customData?.curveArrow) {
+      //ymjr
+      const midPoints = LinearElementEditor.getEditorMidPoints(
+        element,
+        elementsMap,
+        appState,
+      ).filter(
+        (midPoint, idx, midPoints): midPoint is GlobalPoint =>
+          midPoint !== null &&
+          !(
+            isElbowArrow(element) &&
+            (idx === 0 || idx === midPoints.length - 1)
+          ),
+      );
 
-    midPoints.forEach((segmentMidPoint) => {
-      if (appState.selectedLinearElement?.isEditing || points.length === 2) {
-        renderSingleLinearPoint(
-          context,
-          appState,
-          segmentMidPoint,
-          POINT_HANDLE_SIZE / 2,
-          false,
-          true,
-          false,
-        );
-      }
-    });
+      midPoints.forEach((segmentMidPoint) => {
+        if (appState.selectedLinearElement?.isEditing || points.length === 2) {
+          renderSingleLinearPoint(
+            context,
+            appState,
+            segmentMidPoint,
+            POINT_HANDLE_SIZE / 2,
+            false,
+            true,
+            false,
+          );
+        }
+      });
+    }
   }
 
   context.restore();
@@ -1940,7 +1979,8 @@ const _renderInteractiveScene = ({
 
       const selections: ElementSelectionBorder[] = [];
 
-      for (const element of elementsMap.values()) {
+      for (let element of elementsMap.values()) {
+        //ymjr
         const selectionColors = [];
         const remoteClients = renderConfig.remoteSelectedElementIds.get(
           element.id,
@@ -1955,10 +1995,16 @@ const _renderInteractiveScene = ({
             )
           )
         ) {
+          // ymjr: Dispatch Hook letting host decide whether to hide child element selection box
+          let hookCtx = { element, appState, shouldHide: false };
+          const core = (window as any).EA_Core;
+          if (core) core.dispatchSync("shouldHideSelectionBox", hookCtx);
+
           // local user
           if (
             locallySelectedIds.has(element.id) &&
-            !isSelectedViaGroup(appState, element)
+            !isSelectedViaGroup(appState, element) &&
+            !!hookCtx.shouldHide //ymjr
           ) {
             selectionColors.push(selectionColor);
           }
@@ -2050,6 +2096,7 @@ const _renderInteractiveScene = ({
         elementsMap,
         "mouse", // when we render we don't know which pointer type so use mouse,
         getOmitSidesForEditorInterface(editorInterface),
+        appState, ///ymjr
       );
       if (
         !appState.viewModeEnabled &&
@@ -2168,6 +2215,8 @@ const _renderInteractiveScene = ({
 
   renderSnaps(context, appState);
 
+  renderCustomSnapPoints(context, appState, elementsMap); //ymjr
+
   context.restore();
 
   renderRemoteCursors({
@@ -2208,7 +2257,24 @@ const _renderInteractiveScene = ({
     });
     context.restore();
   }
-
+  // (window as any)?._renderInteractiveScene_Hook?.(canvas, elementsMap, visibleElements, selectedElements, scale, appState, renderConfig, context, getElementAbsoluteCoords, rough)
+  const core = (window as any).EA_Core;
+  if (core) {
+    const payload = {
+      canvas,
+      elementsMap,
+      visibleElements,
+      selectedElements,
+      scale,
+      appState,
+      renderConfig,
+      context,
+      utils: {
+        getElementAbsoluteCoords,
+      },
+    };
+    core.dispatchSync("renderInteractiveScene", payload);
+  }
   return {
     scrollBars,
     animationState: nextAnimationState,
@@ -2231,4 +2297,88 @@ export const renderInteractiveScene = <
   const ret = _renderInteractiveScene(renderConfig);
   renderConfig.callback(ret);
   return ret as ReturnType<U>;
+};
+
+// ymjr
+const renderCustomSnapPoints = (
+  context: CanvasRenderingContext2D,
+  appState: InteractiveCanvasAppState,
+  elementsMap: RenderableElementsMap,
+) => {
+  // 1. Base check: suggested binding present
+  if (!appState.suggestedBinding) return;
+
+  const bindingRef = appState.suggestedBinding;
+  const targetElement =
+    elementsMap.get(bindingRef.element.id) || bindingRef.element;
+  if (!targetElement) return;
+
+  // 2. Retrieve active arrow element (new or existing)
+  let arrowElement = null;
+  if (appState.selectedLinearElement) {
+    arrowElement = elementsMap.get(appState.selectedLinearElement.elementId);
+  }
+
+  // 3. Core determination logic
+  let shouldShowSnap = false;
+
+  const isSnapPoints = (snapValue: any) =>
+    snapValue === "points" || snapValue === true;
+
+  // Case A: Target element carries snap property
+  if (isSnapPoints(targetElement.customData?.snap)) {
+    shouldShowSnap = true;
+  }
+  // Case B: Dragged arrow carries snap property or curveArrow
+  else if (
+    isSnapPoints(arrowElement?.customData?.snap) ||
+    arrowElement?.customData?.curveArrow
+  ) {
+    shouldShowSnap = true;
+  }
+  // Case C: Newly created arrow carries snap property
+  else if (isSnapPoints(appState.newElement?.customData?.snap)) {
+    shouldShowSnap = true;
+  }
+
+  if (!shouldShowSnap) return;
+
+  // --- Draw snap points ---
+  context.save();
+  context.translate(appState.scrollX, appState.scrollY);
+
+  const snapColor = "#ff00ff";
+  context.strokeStyle = snapColor;
+  context.lineWidth = 2 / appState.zoom.value;
+  const size = 5 / appState.zoom.value;
+
+  // Retrieve candidate points
+  const candidates = getSnapCandidates(targetElement);
+  candidates.forEach((fp) => {
+    const [fixedX, fixedY] = fp;
+    const cx = targetElement.x + targetElement.width / 2;
+    const cy = targetElement.y + targetElement.height / 2;
+    const center = pointFrom(cx, cy);
+
+    // Compute unrotated absolute coordinates
+    const absoluteX = targetElement.x + targetElement.width * fixedX;
+    const absoluteY = targetElement.y + targetElement.height * fixedY;
+
+    // Rotate
+    const [rx, ry] = pointRotateRads(
+      pointFrom(absoluteX, absoluteY),
+      center,
+      targetElement.angle as Radians,
+    );
+
+    // Render
+    context.beginPath();
+    context.moveTo(rx - size, ry - size);
+    context.lineTo(rx + size, ry + size);
+    context.moveTo(rx + size, ry - size);
+    context.lineTo(rx - size, ry + size);
+    context.stroke();
+  });
+
+  context.restore();
 };

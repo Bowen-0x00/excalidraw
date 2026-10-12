@@ -120,6 +120,21 @@ export default function LibraryMenuItems({
     () => libraryItems.filter((item) => item.status === "published"),
     [libraryItems],
   );
+  const itemsMap = useMemo(() => {
+    //ymjr
+    const itemsMap = new Map();
+    libraryItems.forEach((item) => {
+      let items = itemsMap.get(item.status);
+      if (!(items && items.length > 0)) {
+        items = [];
+        itemsMap.set(item.status, items);
+      }
+      items.push(item);
+    });
+    return itemsMap;
+  }, [libraryItems]);
+  const statusArray = Array.from(itemsMap.keys());
+  const itemsArray = Array.from(itemsMap.values());
 
   const onItemSelectToggle = useCallback(
     (id: LibraryItem["id"], event: React.MouseEvent) => {
@@ -259,71 +274,43 @@ export default function LibraryMenuItems({
     });
   }, []);
 
-  const JSX_whenNotSearching = !IS_SEARCHING && (
+  const JSX_whenNotSearching = !IS_SEARCHING && ( //ymjr
     <>
-      {!IS_LIBRARY_EMPTY && (
-        <div className="library-menu-items-container__header">
-          {t("labels.personalLib")}
-        </div>
-      )}
-      {!pendingElements.length && !unpublishedItems.length ? (
-        <div className="library-menu-items__no-items">
-          {!publishedItems.length && (
-            <div className="library-menu-items__no-items__label">
-              {t("library.noItems")}
-            </div>
-          )}
-          <div className="library-menu-items__no-items__hint">
-            {publishedItems.length > 0
-              ? t("library.hint_emptyPrivateLibrary")
-              : t("library.hint_emptyLibrary")}
-          </div>
-        </div>
-      ) : (
-        <LibraryMenuSectionGrid>
-          {pendingElements.length > 0 && (
-            <LibraryMenuSection
-              itemsRenderedPerBatch={itemsRenderedPerBatch}
-              items={[{ id: null, elements: pendingElements }]}
-              onItemSelectToggle={onItemSelectToggle}
-              onItemDrag={onItemDrag}
-              onClick={onAddToLibraryClick}
-              isItemSelected={isItemSelected}
-              svgCache={svgCache}
-            />
-          )}
-          <LibraryMenuSection
-            itemsRenderedPerBatch={itemsRenderedPerBatch}
-            items={unpublishedItems}
-            onItemSelectToggle={onItemSelectToggle}
-            onItemDrag={onItemDrag}
-            onClick={onItemClick}
-            isItemSelected={isItemSelected}
-            svgCache={svgCache}
-          />
-        </LibraryMenuSectionGrid>
-      )}
-
-      {publishedItems.length > 0 && (
-        <div
-          className="library-menu-items-container__header"
-          style={{ marginTop: "0.75rem" }}
-        >
-          {t("labels.excalidrawLib")}
-        </div>
-      )}
-      {publishedItems.length > 0 && (
-        <LibraryMenuSectionGrid>
-          <LibraryMenuSection
-            itemsRenderedPerBatch={itemsRenderedPerBatch}
-            items={publishedItems}
-            onItemSelectToggle={onItemSelectToggle}
-            onItemDrag={onItemDrag}
-            onClick={onItemClick}
-            isItemSelected={isItemSelected}
-            svgCache={svgCache}
-          />
-        </LibraryMenuSectionGrid>
+      {statusArray.map(
+        (status: string, index: number) =>
+          itemsArray[index].length > 0 && (
+            <React.Fragment key={index}>
+              <div className="library-menu-items-container__header">
+                {status}
+              </div>
+              {!itemsArray[index].length ? (
+                <div className="library-menu-items__no-items">
+                  {/* {!publishedItems.length && (
+                    <div className="library-menu-items__no-items__label">
+                      {t("library.noItems")}
+                    </div>
+                  )} */}
+                  <div className="library-menu-items__no-items__hint">
+                    {publishedItems.length > 0
+                      ? t("library.hint_emptyPrivateLibrary")
+                      : t("library.hint_emptyLibrary")}
+                  </div>
+                </div>
+              ) : (
+                <LibraryMenuSectionGrid>
+                  <LibraryMenuSection
+                    itemsRenderedPerBatch={itemsRenderedPerBatch}
+                    items={itemsArray[index]}
+                    onItemSelectToggle={onItemSelectToggle}
+                    onItemDrag={onItemDrag}
+                    onClick={onItemClick}
+                    isItemSelected={isItemSelected}
+                    svgCache={svgCache}
+                  />
+                </LibraryMenuSectionGrid>
+              )}
+            </React.Fragment>
+          ),
       )}
     </>
   );

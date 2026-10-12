@@ -539,6 +539,9 @@ import type { RoughCanvas } from "roughjs/bin/canvas";
 import type { Action, ActionName, ActionResult } from "../actions/types";
 import { getFontSize } from "../actions/actionProperties";
 
+import { elementWithCanvasCache } from "../../element/src/renderElement"; //ymjr
+import { getLinkHandleFromCoords } from "./hyperlink/helpers"; //ymjr
+
 const AppContext = React.createContext<AppClassProperties>(null!);
 const AppPropsContext = React.createContext<AppProps>(null!);
 
@@ -700,6 +703,7 @@ class App extends React.Component<AppProps, AppState> {
     container: HTMLDivElement | null;
     id: string;
   };
+  lastEl: ExcalidrawElement | null | undefined = undefined; //ymjr
 
   public files: BinaryFiles = {};
   public imageCache: AppClassProperties["imageCache"] = new Map();
@@ -756,6 +760,10 @@ class App extends React.Component<AppProps, AppState> {
     null;
 
   hitLinkElement?: NonDeletedExcalidrawElement;
+  hitDetailElement?: NonDeletedExcalidrawElement; //ymjr
+  hitSvgPathElement?: NonDeletedExcalidrawElement; //ymjr
+  hitContainerElement?: NonDeletedExcalidrawElement; //ymjr
+
   lastPointerDownEvent: React.PointerEvent<HTMLElement> | null = null;
   /**
    * the handle of the resize in progress while `state.isResizing` — for UI
@@ -778,7 +786,6 @@ class App extends React.Component<AppProps, AppState> {
   /** previous frame pointer coords */
   previousPointerMoveCoords: { x: number; y: number } | null = null;
   allowMobileMode: boolean = true; //zsviczian
-
 
   drawShape = new AppDrawShape(this);
   laserTrails = new LaserTrails(this);
@@ -901,6 +908,9 @@ class App extends React.Component<AppProps, AppState> {
       bringToFront: this.bringToFront, //zsviczian
       getHTMLIFrameElement: (id: string) => this.getHTMLIFrameElement(id), //zsviczian
       awaitImageFiles: this.awaitImageFiles, // zsviczian -- let the Obsidian migration publisher pace decoded batches
+      App: this, //ymjr
+      ShapeCache, //ymjr
+      elementWithCanvasCache, //ymjr
     };
     return api;
   }
@@ -1899,13 +1909,17 @@ class App extends React.Component<AppProps, AppState> {
           );
 
           //zsviczian - shouldRenderAllEmbeddables
-          const isVisible = this.shouldRenderAllEmbeddables || isElementInViewport(
-            getRenderElementWithPositionOverride(el, renderState.offset),
-            normalizedWidth,
-            normalizedHeight,
-            this.state,
-            this.scene.getNonDeletedElementsMap(),
-          );
+          const isVisible =
+            (this.shouldRenderAllEmbeddables ||
+              isElementInViewport(
+                getRenderElementWithPositionOverride(el, renderState.offset),
+                normalizedWidth,
+                normalizedHeight,
+                this.state,
+                this.scene.getNonDeletedElementsMap(),
+              )) &&
+            el.opacity > 0 &&
+            !el?.customData?.hide; //ymjr
           const hasBeenInitialized = this.initializedEmbeds.has(el.id);
 
           if (isVisible && !hasBeenInitialized) {
@@ -2059,8 +2073,13 @@ class App extends React.Component<AppProps, AppState> {
           return (
             <div
               key={el.id}
+              id={el.id}
               className={clsx("excalidraw__embeddable-container", {
-                "is-hovered": isHovered,
+                "is-hovered":
+                  (!el?.customData?.iframe ||
+                    el.customData.iframe.hover == null ||
+                    el.customData.iframe.hover != false) &&
+                  isHovered, //ymjr
               })}
               style={{
                 transform: isVisible
@@ -2081,7 +2100,7 @@ class App extends React.Component<AppProps, AppState> {
                     ? DEFAULT_REDUCED_GLOBAL_ALPHA
                     : 1),
                 ["--embeddable-radius" as string]: `${
-                  getCornerRadius(Math.min(el.width, el.height), el,) / xScale
+                  getCornerRadius(Math.min(el.width, el.height), el) / xScale
                 }px`,
               }}
             >
@@ -2112,77 +2131,219 @@ class App extends React.Component<AppProps, AppState> {
                     : POINTER_EVENTS.disabled,
                 }}
               >
-                {isHovered && (
+                {/* ymjr*/}
+                {!el?.customData?.iframe && isHovered && (
                   <div className="excalidraw__embeddable-hint">
                     {t("buttons.embeddableInteractionButton")}
                   </div>
                 )}
-                <div
-                  className="excalidraw__embeddable__outer"
-                  style={{
-                    padding: `${el.strokeWidth / (4 * el.scale[0])}px`, //zsviczian MDEmbeddable round border cutoff issue
-                  }}
-                >
+                {/* ymjr */}
+                {(el?.customData?.iframe?.children &&
+                  (() => {
+                    if (el?.customData?.iframe?.children) {
+                      const El = document.getElementById(el.id);
+                      if (!El) return;
+                      if ("tt" in El) return;
+                      if (!El.firstChild) return;
+                      (El.firstChild as HTMLElement).innerHTML =
+                        el.customData.iframe.children
+                          .replace("\r\n", "\n")
+                          .replace("\n", " ")
+                          .replace(/\\s+</, "<");
+                      if (el?.customData?.iframe?.scroll) {
+                        (El.firstChild as HTMLElement).style.overflow =
+                          "overlay";
+                        (El.firstChild as HTMLElement).style.overflow =
+                          "scroll";
+                      }
+                      if (el?.customData?.iframe?.script) {
+                        new Function(
+                          "element",
+                          "El",
+                          el.customData.iframe.script,
+                        )(el, El);
+                      }
+                    }
+                  })()) || (
                   <div
-                    className="excalidraw__embeddable__content"
+                    className="excalidraw__embeddable__outer"
                     style={{
-                      width: `${embeddableViewportScale * 100}%`,
-                      height: `${embeddableViewportScale * 100}%`,
-                      transform: `scale(${1 / embeddableViewportScale})`,
+                      padding: `${el.strokeWidth / (4 * el.scale[0])}px`, //zsviczian MDEmbeddable round border cutoff issue
                     }}
                   >
-                    {(isEmbeddableElement(el)
-                      ? this.props.renderEmbeddable?.(el, this.state) //zsviczian
-                      : null) ??
-                      (isWebview ? ( //zsviczian
-                        <webview
-                          ref={(ref) =>
-                            this.cacheEmbeddableRef(el, ref as HTMLIFrameElement)
-                          }
-                          className="excalidraw__embeddable"
-                          src={
-                            embedLink?.type === "generic" ||
-                            embedLink?.type === "video"
-                              ? embedLink.link
-                              : ""
-                          }
-                          title="Excalidraw Embedded Content"
-                          allowFullScreen={true}
-                        />
-                      ) : (
-                        <iframe
-                          ref={(ref) => this.cacheEmbeddableRef(el, ref)}
-                          className="excalidraw__embeddable"
-                          srcDoc={
-                            src?.type === "document"
-                              ? src.srcdoc(this.state.theme)
-                              : undefined
-                          }
-                          src={
-                            src?.type !== "document" ? src?.link ?? "" : undefined
-                          }
-                          // https://stackoverflow.com/q/18470015
-                          // scrolling="no" //zsviczian
-                          referrerPolicy="no-referrer-when-downgrade"
-                          title="Excalidraw Embedded Content"
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                          allowFullScreen={true}
-                          sandbox={`${
-                            src?.sandbox?.allowSameOrigin
-                              ? "allow-same-origin"
-                              : ""
-                          } allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation allow-downloads`}
-                        />
-                      )
-                    )}
+                    <div
+                      className="excalidraw__embeddable__content"
+                      style={{
+                        width: `${embeddableViewportScale * 100}%`,
+                        height: `${embeddableViewportScale * 100}%`,
+                        transform: `scale(${1 / embeddableViewportScale})`,
+                      }}
+                    >
+                      {(isEmbeddableElement(el)
+                        ? this.props.renderEmbeddable?.(el, this.state) //zsviczian
+                        : null) ??
+                        (isWebview ? ( //zsviczian
+                          <webview
+                            ref={(ref) =>
+                              this.cacheEmbeddableRef(
+                                el,
+                                ref as HTMLIFrameElement,
+                              )
+                            }
+                            className="excalidraw__embeddable"
+                            src={
+                              embedLink?.type === "generic" ||
+                              embedLink?.type === "video"
+                                ? embedLink.link
+                                : ""
+                            }
+                            title="Excalidraw Embedded Content"
+                            allowFullScreen={true}
+                          />
+                        ) : (
+                          <iframe
+                            ref={(ref) => this.cacheEmbeddableRef(el, ref)}
+                            className="excalidraw__embeddable"
+                            srcDoc={
+                              src?.type === "document"
+                                ? src.srcdoc(this.state.theme)
+                                : undefined
+                            }
+                            src={
+                              src?.type !== "document"
+                                ? src?.link ?? ""
+                                : undefined
+                            }
+                            // https://stackoverflow.com/q/18470015
+                            // scrolling="no" //zsviczian
+                            referrerPolicy="no-referrer-when-downgrade"
+                            title="Excalidraw Embedded Content"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen={true}
+                            sandbox={`${
+                              src?.sandbox?.allowSameOrigin
+                                ? "allow-same-origin"
+                                : ""
+                            } allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation allow-downloads`}
+                          />
+                        ))}
+                    </div>
                   </div>
-                </div>
+                )}
                 {isPendingGeneration && (
                   <div className="excalidraw__embeddable__generating">
                     <Spinner size="1em" />
                     Generating…
                   </div>
                 )}
+              </div>
+            </div>
+          );
+        })}
+      </>
+    );
+  }
+
+  private renderCustomDocuments() {
+    //ymjr
+    const scale = this.state.zoom.value;
+    const normalizedWidth = this.state.width;
+    const normalizedHeight = this.state.height;
+
+    const elements = this.scene
+      .getNonDeletedElements()
+      .filter(
+        (el): el is Ordered<NonDeleted<ExcalidrawIframeLikeElement>> =>
+          !!(el.customData?.document || el.customData?.echarts),
+      );
+    return (
+      <>
+        {elements.map((el) => {
+          let scaleFixed = scale;
+          const { x, y } = sceneCoordsToViewportCoords(
+            { sceneX: el.x, sceneY: el.y },
+            this.state,
+          );
+
+          const isVisible = isElementInViewport(
+            el,
+            normalizedWidth,
+            normalizedHeight,
+            this.state,
+            this.scene.getNonDeletedElementsMap(),
+          );
+          const hasBeenInitialized = this.initializedEmbeds.has(el.id);
+
+          if (isVisible && !hasBeenInitialized) {
+            this.initializedEmbeds.add(el.id);
+          }
+          const shouldRender = isVisible || hasBeenInitialized;
+
+          if (!shouldRender) {
+            return null;
+          }
+
+          // Modify the scale based on el.scale property
+          const [xScale, yScale] = el.scale ?? [1, 1]; //zsviczian
+          const scaledTransform = `scale(${scaleFixed * xScale}, ${
+            scaleFixed * yScale
+          })`; //ymjr
+
+          return (
+            <div
+              key={el.id}
+              /*ymjr+++>>>*/ id={el.id} /*ymjr+++<<<*/
+              className={clsx("excalidraw__embeddable-container")}
+              style={{
+                transform: isVisible
+                  ? `translate(${x - this.state.offsetLeft}px, ${
+                      y - this.state.offsetTop
+                    }px) ${scaledTransform}`
+                  : "none",
+                display: isVisible ? "block" : "none",
+                opacity: this.getElementRenderState(el).opacity,
+                ["--embeddable-radius" as string]: `${
+                  getCornerRadius(Math.min(el.width, el.height), el) / xScale //zsviczian
+                }px`,
+              }}
+            >
+              <div
+                className="excalidraw__embeddable-container__inner"
+                style={{
+                  width: isVisible ? `${el.width / xScale}px` : 0,
+                  height: isVisible ? `${el.height / yScale}px` : 0,
+                  transform: isVisible ? `rotate(${el.angle}rad)` : "none",
+                  pointerEvents: POINTER_EVENTS.enabled,
+                }}
+              >
+                {
+                  <div
+                    className="excalidraw__embeddable__outer"
+                    style={{
+                      padding: `${el.strokeWidth / (4 * xScale)}px`,
+                    }}
+                  >
+                    {(() => {
+                      const core = (window as any).EA_Core;
+                      if (core) {
+                        // Context object to pass data across hooks and collect render result
+                        const context = {
+                          element: el,
+                          appState: this.state,
+                          component: null as React.ReactNode,
+                        };
+
+                        // Trigger synchronous dispatch
+                        // ymjr: render host-provided custom documents.
+                        core.dispatchSync("renderCustomDocument", context);
+
+                        // Return React component populated by host script
+                        return context.component;
+                      }
+                      return null;
+                    })()}
+                  </div>
+                }
               </div>
             </div>
           );
@@ -2255,9 +2416,13 @@ class App extends React.Component<AppProps, AppState> {
 
     const isDarkTheme = this.state.theme === THEME.DARK;
     //zsviczian
-    const nonDeletedFramesLikes = this.state.frameRendering.markerName && this.state.frameRendering.markerEnabled
-      ? this.scene.getNonDeletedFramesLikes()
-      : this.scene.getNonDeletedFramesLikes().filter(f => f.frameRole !== "marker");
+    const nonDeletedFramesLikes =
+      this.state.frameRendering.markerName &&
+      this.state.frameRendering.markerEnabled
+        ? this.scene.getNonDeletedFramesLikes()
+        : this.scene
+            .getNonDeletedFramesLikes()
+            .filter((f) => f.frameRole !== "marker");
 
     const focusedSearchMatch =
       nonDeletedFramesLikes.length > 0
@@ -2734,31 +2899,31 @@ class App extends React.Component<AppProps, AppState> {
                             />
                           )}
                           {newElementCanvasElement &&
-                          isHighlighter && ( //zsviczian
-                            <NewElementCanvas
-                              appState={this.state}
-                              newElement={newElementCanvasElement}
-                              scale={this.ownerWindow.devicePixelRatio}
-                              rc={this.rc}
-                              elementsMap={renderableElementsMap}
-                              allElementsMap={allElementsMap}
-                              renderConfig={{
-                                imageCache: this.imageCache,
-                                isExporting: false,
-                                renderGrid: false,
-                                canvasBackgroundColor:
-                                  this.state.viewBackgroundColor,
-                                embedsValidationStatus:
-                                  this.embedsValidationStatus,
-                                elementsPendingErasure:
-                                  this.elementsPendingErasure,
-                                pendingFlowchartNodes: null,
-                                theme: this.state.theme,
-                                isHighlighterPenDrawing: isHighlighter, //zsviczian
-                                ...this.getRenderOverrideConfig(),
-                              }}
-                            />
-                          )}
+                            isHighlighter && ( //zsviczian
+                              <NewElementCanvas
+                                appState={this.state}
+                                newElement={newElementCanvasElement}
+                                scale={this.ownerWindow.devicePixelRatio}
+                                rc={this.rc}
+                                elementsMap={renderableElementsMap}
+                                allElementsMap={allElementsMap}
+                                renderConfig={{
+                                  imageCache: this.imageCache,
+                                  isExporting: false,
+                                  renderGrid: false,
+                                  canvasBackgroundColor:
+                                    this.state.viewBackgroundColor,
+                                  embedsValidationStatus:
+                                    this.embedsValidationStatus,
+                                  elementsPendingErasure:
+                                    this.elementsPendingErasure,
+                                  pendingFlowchartNodes: null,
+                                  theme: this.state.theme,
+                                  isHighlighterPenDrawing: isHighlighter, //zsviczian
+                                  ...this.getRenderOverrideConfig(),
+                                }}
+                              />
+                            )}
                           <StaticCanvas
                             canvas={this.canvas}
                             rc={this.rc}
@@ -2798,39 +2963,40 @@ class App extends React.Component<AppProps, AppState> {
                               ...this.getRenderOverrideConfig(),
                             }}
                           />
-                          {previewElement && !isHighlighter && ( //zsviczian -- highlighter previews render below StaticCanvas; toolbar-drag previews render here
-                            <NewElementCanvas
-                              appState={this.state}
-                              newElement={previewElement}
-                              scale={this.ownerWindow.devicePixelRatio}
-                              rc={this.rc}
-                              elementsMap={renderableElementsMap}
-                              allElementsMap={allElementsMap}
-                              renderConfig={{
-                                imageCache: this.imageCache,
-                                isExporting: false,
-                                renderGrid: false,
-                                canvasBackgroundColor:
-                                  this.state.viewBackgroundColor,
-                                embedsValidationStatus:
-                                  this.embedsValidationStatus,
-                                elementsPendingErasure:
-                                  this.elementsPendingErasure,
-                                pendingFlowchartNodes: null,
-                                theme: this.state.theme,
-                                isHighlighterPenDrawing: isHighlighter, //zsviczian
-                                ...this.getRenderOverrideConfig(),
-                              }}
-                              // a tool dragged out of the toolbar previews
-                              // translucently; the element itself is drawn
-                              // exactly as it will land
-                              opacity={
-                                this.toolDrag.preview
-                                  ? TOOL_DRAG_PREVIEW_OPACITY
-                                  : undefined
-                              }
-                            />
-                          )}
+                          {previewElement &&
+                            !isHighlighter && ( //zsviczian -- highlighter previews render below StaticCanvas; toolbar-drag previews render here
+                              <NewElementCanvas
+                                appState={this.state}
+                                newElement={previewElement}
+                                scale={this.ownerWindow.devicePixelRatio}
+                                rc={this.rc}
+                                elementsMap={renderableElementsMap}
+                                allElementsMap={allElementsMap}
+                                renderConfig={{
+                                  imageCache: this.imageCache,
+                                  isExporting: false,
+                                  renderGrid: false,
+                                  canvasBackgroundColor:
+                                    this.state.viewBackgroundColor,
+                                  embedsValidationStatus:
+                                    this.embedsValidationStatus,
+                                  elementsPendingErasure:
+                                    this.elementsPendingErasure,
+                                  pendingFlowchartNodes: null,
+                                  theme: this.state.theme,
+                                  isHighlighterPenDrawing: isHighlighter, //zsviczian
+                                  ...this.getRenderOverrideConfig(),
+                                }}
+                                // a tool dragged out of the toolbar previews
+                                // translucently; the element itself is drawn
+                                // exactly as it will land
+                                opacity={
+                                  this.toolDrag.preview
+                                    ? TOOL_DRAG_PREVIEW_OPACITY
+                                    : undefined
+                                }
+                              />
+                            )}
                           <InteractiveCanvas
                             app={this}
                             containerRef={this.excalidrawContainerRef}
@@ -2886,6 +3052,8 @@ class App extends React.Component<AppProps, AppState> {
                             )}
                         </ExcalidrawActionManagerContext.Provider>
                         {this.renderEmbeddables()}
+                        {this.renderCustomDocuments()}
+                        {/*ymjr*/}
                       </ExcalidrawElementsContext.Provider>
                     </ExcalidrawAppStateContext.Provider>
                   </ExcalidrawSetAppStateContext.Provider>
@@ -3862,8 +4030,12 @@ class App extends React.Component<AppProps, AppState> {
   };
 
   private getFormFactor = (editorWidth: number, editorHeight: number) => {
-    if (this.props.UIOptions.getFormFactor?.(editorWidth, editorHeight) === "phone" && !this.allowMobileMode) {
-      return getFormFactor(editorWidth, editorHeight, this.allowMobileMode) //zsviczian
+    if (
+      this.props.UIOptions.getFormFactor?.(editorWidth, editorHeight) ===
+        "phone" &&
+      !this.allowMobileMode
+    ) {
+      return getFormFactor(editorWidth, editorHeight, this.allowMobileMode); //zsviczian
     }
     return (
       this.props.UIOptions.getFormFactor?.(editorWidth, editorHeight) ??
@@ -3954,7 +4126,11 @@ class App extends React.Component<AppProps, AppState> {
       if (isInitializedImageElement(element) && files[element.fileId]) {
         //zsviczian cancel any pending image load promises to avoid memory leaks
         const cacheData = this.imageCache.get(element.fileId);
-        if (cacheData && cacheData.image instanceof Promise && typeof (cacheData.image as any).cancel === "function") {
+        if (
+          cacheData &&
+          cacheData.image instanceof Promise &&
+          typeof (cacheData.image as any).cancel === "function"
+        ) {
           (cacheData.image as any).cancel();
         }
 
@@ -4101,7 +4277,10 @@ class App extends React.Component<AppProps, AppState> {
 
     //zsviczian
     for (const data of this.imageCache.values()) {
-      if (data.image instanceof Promise && typeof (data.image as any).cancel === "function") {
+      if (
+        data.image instanceof Promise &&
+        typeof (data.image as any).cancel === "function"
+      ) {
         (data.image as any).cancel();
       }
     }
@@ -4370,9 +4549,14 @@ class App extends React.Component<AppProps, AppState> {
       addEventListener(this.ownerDocument, EVENT.KEYUP, this.onKeyUp, {
         passive: true,
       }),
-      addEventListener(this.ownerWindow, "focus", () => this.triggerRender(true), {
-        passive: true,
-      }), //zsviczian
+      addEventListener(
+        this.ownerWindow,
+        "focus",
+        () => this.triggerRender(true),
+        {
+          passive: true,
+        },
+      ), //zsviczian
       addEventListener(
         this.ownerDocument,
         EVENT.POINTER_MOVE,
@@ -5025,7 +5209,8 @@ class App extends React.Component<AppProps, AppState> {
 
       if (this.props.onPaste) {
         try {
-          if ((await this.props.onPaste(data, event, filesList)) === false) { //zsviczian
+          if ((await this.props.onPaste(data, event, filesList)) === false) {
+            //zsviczian
             return;
           }
         } catch (error: any) {
@@ -5043,7 +5228,8 @@ class App extends React.Component<AppProps, AppState> {
     },
   );
 
-  addElementsFromPasteOrLibrary = (opts: {
+  addElementsFromPasteOrLibrary = async (opts: {
+    //ymjr
     elements: readonly ExcalidrawElement[];
     files: BinaryFiles | null;
     position: { clientX: number; clientY: number } | "cursor" | "center";
@@ -5081,6 +5267,14 @@ class App extends React.Component<AppProps, AppState> {
     }
 
     const { nextElements, duplicatedElements } = duplication;
+    // ymjr
+    const core = (window as any).EA_Core;
+    // ymjr: allow the host to transform pasted and library elements.
+    await core?.dispatchAsync("addElementsFromPasteOrLibrary", {
+      App: this,
+      opts,
+      duplicatedElements,
+    });
 
     this.scene.replaceAllElements(nextElements);
 
@@ -5097,9 +5291,11 @@ class App extends React.Component<AppProps, AppState> {
     // paste event may not fire FontFace loadingdone event in Safari, hence loading font faces manually
     if (true) {
       //zsviczian - isSafari
-      Fonts.loadElementsFonts(duplicatedElements, this.ownerDocument).then((fontFaces) => {
-        this.fonts.onLoaded(fontFaces);
-      });
+      Fonts.loadElementsFonts(duplicatedElements, this.ownerDocument).then(
+        (fontFaces) => {
+          this.fonts.onLoaded(fontFaces);
+        },
+      );
     }
 
     if (opts.files) {
@@ -5409,7 +5605,8 @@ class App extends React.Component<AppProps, AppState> {
           outline: next?.outline ?? prevState.frameRendering.outline,
           //zsviczian
           markerName: next?.markerName ?? prevState.frameRendering.markerName,
-          markerEnabled: next?.markerEnabled ?? prevState.frameRendering.markerEnabled,
+          markerEnabled:
+            next?.markerEnabled ?? prevState.frameRendering.markerEnabled,
         },
       };
     });
@@ -5481,10 +5678,10 @@ class App extends React.Component<AppProps, AppState> {
   //zsviczian
   setForceRenderAllEmbeddables = (force: boolean) => {
     this.shouldRenderAllEmbeddables = force;
-    if(force) {
+    if (force) {
       this.setState({});
     }
-  }
+  };
 
   //zsviczian
   zoomToFit = (
@@ -5551,7 +5748,8 @@ class App extends React.Component<AppProps, AppState> {
     el: ExcalidrawLinearElement,
     selectedPointsIndices: number[] | null = null,
   ) => {
-    if (!el || !isLinearElement(el) || el.isDeleted) { //zsviczian
+    if (!el || !isLinearElement(el) || el.isDeleted) {
+      //zsviczian
       return;
     }
 
@@ -5852,6 +6050,13 @@ class App extends React.Component<AppProps, AppState> {
       forceFlushSync?: boolean; //zsviczian
     }) => {
       const { elements, appState, collaborators, captureUpdate } = sceneData;
+      // ymjr
+      // (window as any)?.updateScene_Hook?.(sceneData);
+      const core = (window as any).EA_Core;
+      if (core) {
+        const context = { sceneData };
+        core.dispatchSync("updateScene", context);
+      }
 
       if (captureUpdate) {
         const nextElements = elements ? elements : undefined;
@@ -5874,7 +6079,7 @@ class App extends React.Component<AppProps, AppState> {
       if (sceneData.forceFlushSync === true) {
         flushSync(() => {
           if (appState) {
-           this.setState(appState as Pick<AppState, K> | null);
+            this.setState(appState as Pick<AppState, K> | null);
           }
         });
       } else if (appState) {
@@ -6023,6 +6228,23 @@ class App extends React.Component<AppProps, AppState> {
         return;
       }
       // normalize `event.key` when CapsLock is pressed #2372
+      // if (await (window as any)?.onKeyDown_Hook?.(this, event)) {//ymjr
+      //   event.stopPropagation();
+      //   return;
+      // }
+      const core = (window as any).EA_Core;
+      if (core) {
+        const context = {
+          App: this,
+          event,
+        };
+        // ymjr: allow the host to intercept keyboard input.
+        const isIntercepted = core.dispatchSync("onKeyDown", context);
+        if (isIntercepted) {
+          event.stopPropagation();
+          return;
+        }
+      }
       if (
         "Proxy" in this.ownerWindow &&
         ((!event.shiftKey && /^[A-Z]$/.test(event.key)) ||
@@ -6157,7 +6379,7 @@ class App extends React.Component<AppProps, AppState> {
 
       //mfuria #329. open context menu with 'm' if not editing text and container focused
       if (
-        event.key.toLowerCase() === 'm' &&
+        event.key.toLowerCase() === "m" &&
         !this.state.editingTextElement &&
         // don't trigger when typing in inputs
         !isInputLike(event.target) &&
@@ -6174,9 +6396,7 @@ class App extends React.Component<AppProps, AppState> {
             clientY: this.viewport.lastPosition.y,
             nativeEvent: new this.ownerWindow.MouseEvent("contextmenu"), // zsviczian -- construct the fork event in the editor realm
             preventDefault: () => event.preventDefault(),
-          } as unknown as React.MouseEvent<
-            HTMLElement | HTMLCanvasElement
-          >,
+          } as unknown as React.MouseEvent<HTMLElement | HTMLCanvasElement>,
           true,
         );
         //zsviczian END
@@ -6403,7 +6623,17 @@ class App extends React.Component<AppProps, AppState> {
         });
 
         this.scene.triggerUpdate();
-
+        // (window as any)?.onKeyDown_arrowKey_Hook?.(selectedElements, this.state, offsetX, offsetY);//ymjr
+        const core = (window as any).EA_Core;
+        if (core) {
+          const context = {
+            selectedElements,
+            state: this.state,
+            offsetX,
+            offsetY,
+          };
+          const isIntercepted = core.dispatchSync("onKeyDownArrowKey", context);
+        }
         event.preventDefault();
       } else if (event.key === KEYS.ENTER) {
         const selectedElements = this.scene.getSelectedElements(this.state);
@@ -7054,7 +7284,38 @@ class App extends React.Component<AppProps, AppState> {
           viewportY - this.state.offsetTop,
         ];
       },
-      onChange: withBatchedUpdates((nextOriginalText) => {
+      onChange: withBatchedUpdates(async (nextOriginalText) => {
+        // const text = await (window as any)?.onTextWysiwygChange_Hook?.(element, nextOriginalText, this, (text: string) => {
+        //   updateElement(text, false);
+        //   updateBoundElements(element, this.scene);
+        // }); //ymjr
+        const core = (window as any).EA_Core;
+        if (core) {
+          const context = {
+            App: this,
+            element: element,
+            originalText: nextOriginalText,
+            updatedText: nextOriginalText,
+
+            commitAsyncUpdate: (newText: string) => {
+              updateElement(newText, false);
+              updateBoundElements(element, this.scene);
+            },
+          };
+
+          // ymjr: allow the host to intercept WYSIWYG updates.
+          const isIntercepted = core.dispatchSync(
+            "onTextWysiwygChange",
+            context,
+          );
+
+          if (isIntercepted && context.updatedText !== nextOriginalText) {
+            nextOriginalText = context.updatedText;
+            updateElement(nextOriginalText, false);
+            updateBoundElements(element, this.scene);
+          }
+        }
+
         updateElement(nextOriginalText, false);
         if (isNonDeletedElement(element)) {
           updateBoundElements(element, this.scene);
@@ -7090,7 +7351,9 @@ class App extends React.Component<AppProps, AppState> {
               );
             nextOriginalText = updatedNextOriginalText ?? nextOriginalText;
             hasTextLink = !!nextLink;
-            link = syncElementLinkWithText() ? nextLink : element.link ?? undefined;
+            link = syncElementLinkWithText()
+              ? nextLink
+              : element.link ?? undefined;
           }
         }
         //zsviczian insert end
@@ -7166,6 +7429,13 @@ class App extends React.Component<AppProps, AppState> {
     // do an initial update to re-initialize element position since we were
     // modifying element's x/y for sake of editor (case: syncing to remote)
     updateElement(element.originalText, false);
+    // /*ymjr*/(window as any)?.handleTextWysiwygHook?.(element)
+    const core = (window as any).EA_Core;
+    if (core) {
+      const isIntercepted = core.dispatchSync("handleTextWysiwyg", {
+        element,
+      });
+    }
   }
 
   private deselectElements() {
@@ -7377,17 +7647,19 @@ class App extends React.Component<AppProps, AppState> {
 
     const elementsMap = this.scene.getNonDeletedElementsMap();
 
-    const elements = (
+    let elements = (
       opts?.includeBoundTextElement && opts?.includeLockedElements
         ? this.scene.getNonDeletedElements()
-        : this.scene
-            .getNonDeletedElements()
-            .filter(
-              (element) =>
-                (opts?.includeLockedElements || !element.locked) &&
-                (opts?.includeBoundTextElement ||
-                  !(isTextElement(element) && element.containerId)),
-            )
+        : this.scene.getNonDeletedElements().filter(
+            (element) =>
+              (opts?.includeLockedElements || !element.locked) &&
+              (opts?.includeBoundTextElement ||
+                !(isTextElement(element) && element.containerId)) &&
+              !(
+                (element?.opacity == 0 && element?.locked == true) ||
+                element?.customData?.hide
+              ), //ymjr,,
+          )
     )
       .filter((el) => this.hitElement(x, y, el))
       .filter((element) => {
@@ -7422,6 +7694,23 @@ class App extends React.Component<AppProps, AppState> {
       })
       .concat(iframeLikes) as NonDeleted<ExcalidrawElement>[];
 
+    // ymjr: Filter elements array through Hook Engine
+    let hookCtx = {
+      App: this,
+      elements,
+      elementsMap,
+      x,
+      y,
+    };
+
+    const core = (window as any).EA_Core;
+    if (core) {
+      // Trigger Hook allowing host to intercept and filter elements array
+      core.dispatchSync("afterGetElementsAtPosition", hookCtx);
+      // Reassign processed elements
+      elements = hookCtx.elements as NonDeleted<ExcalidrawElement>[];
+    }
+
     return elements;
   }
 
@@ -7441,6 +7730,12 @@ class App extends React.Component<AppProps, AppState> {
     element: NonDeletedExcalidrawElement,
     considerBoundingBox = true,
   ) {
+    if (element.customData?.svgPathShape || element.customData?.curveArrow) {
+      //ymjr
+      if (this.isPointInSVGPath(element, x, y)) {
+        return true;
+      }
+    }
     // if the element is selected, then hit test is done against its bounding box
     if (
       considerBoundingBox &&
@@ -7598,6 +7893,38 @@ class App extends React.Component<AppProps, AppState> {
         this.state,
         container,
       );
+
+    // ymjr
+    let hookCtx = {
+      App: this,
+      container,
+      sceneX,
+      sceneY,
+      parentCenterPosition,
+      shouldBindToContainer,
+      verticalAlign: parentCenterPosition
+        ? VERTICAL_ALIGN.MIDDLE
+        : DEFAULT_VERTICAL_ALIGN,
+      textAlign: parentCenterPosition
+        ? "center"
+        : this.state.currentItemTextAlign,
+      shouldResizeContainer: true,
+    };
+    const core = (window as any).EA_Core;
+    if (core) {
+      // ymjr: allow the host to intercept text-edit startup.
+      const isIntercepted = core.dispatchSync(
+        "beforeStartTextEditing",
+        hookCtx,
+      );
+      if (isIntercepted) return;
+    }
+
+    sceneX = hookCtx.sceneX;
+    sceneY = hookCtx.sceneY;
+    parentCenterPosition = hookCtx.parentCenterPosition;
+    shouldBindToContainer = hookCtx.shouldBindToContainer;
+
     if (container && parentCenterPosition) {
       const boundTextElementToContainer = getBoundTextElement(
         container,
@@ -7617,7 +7944,6 @@ class App extends React.Component<AppProps, AppState> {
             )
           : null) ||
         this.getTextElementAtPosition(sceneX, sceneY);
-
     const fontFamily =
       existingTextElement?.fontFamily || this.state.currentItemFontFamily;
 
@@ -7646,19 +7972,22 @@ class App extends React.Component<AppProps, AppState> {
       const minHeight = getApproxMinLineHeight(fontSize, lineHeight);
       const newHeight = Math.max(container.height, minHeight);
       const newWidth = Math.max(container.width, minWidth);
-      this.scene.mutateElement(container, {
-        height: newHeight,
-        width: newWidth,
-      });
-      sceneX = container.x + newWidth / 2;
-      sceneY = container.y + newHeight / 2;
-      if (parentCenterPosition) {
-        parentCenterPosition = this.getTextWysiwygSnappedToCenterPosition(
-          sceneX,
-          sceneY,
-          this.state,
-          container,
-        );
+      if (hookCtx.shouldResizeContainer) {
+        //ymjr
+        this.scene.mutateElement(container, {
+          height: newHeight,
+          width: newWidth,
+        });
+        sceneX = container.x + newWidth / 2;
+        sceneY = container.y + newHeight / 2;
+        if (parentCenterPosition) {
+          parentCenterPosition = this.getTextWysiwygSnappedToCenterPosition(
+            sceneX,
+            sceneY,
+            this.state,
+            container,
+          );
+        }
       }
     }
 
@@ -7725,14 +8054,9 @@ class App extends React.Component<AppProps, AppState> {
             ? fontSize
             : null,
         fontFamily,
-        textAlign:
-          arrowEndpointBinding?.textAlign ??
-          (parentCenterPosition ? "center" : this.state.currentItemTextAlign),
+        textAlign: arrowEndpointBinding?.textAlign ?? hookCtx.textAlign, //ymjr
         verticalAlign:
-          arrowEndpointBinding?.verticalAlign ??
-          (parentCenterPosition
-            ? VERTICAL_ALIGN.MIDDLE
-            : DEFAULT_VERTICAL_ALIGN),
+          arrowEndpointBinding?.verticalAlign ?? hookCtx.verticalAlign, //ymjr
         containerId: shouldBindToContainer ? container?.id : undefined,
         labelPosition:
           shouldBindToContainer && container && isArrowElement(container)
@@ -7894,6 +8218,21 @@ class App extends React.Component<AppProps, AppState> {
       event,
       this.state,
     );
+
+    let hookCtx = {
+      App: this,
+      sceneX,
+      sceneY,
+      event,
+    };
+    const core = (window as any).EA_Core;
+    if (core) {
+      const isIntercepted = core.dispatchSync(
+        "handleCanvasDoubleClick",
+        hookCtx,
+      );
+      if (isIntercepted) return;
+    }
 
     if (selectedElements.length === 1 && isLinearElement(selectedElements[0])) {
       const selectedLinearElement: ExcalidrawLinearElement =
@@ -8063,11 +8402,12 @@ class App extends React.Component<AppProps, AppState> {
         }
 
         //zsviczian Disable double click text create, but allow double click edit
-        if(disableDoubleClickTextEditing()) {
-          let existingTextElement: NonDeleted<ExcalidrawTextElement> | null = null;
+        if (disableDoubleClickTextEditing()) {
+          let existingTextElement: NonDeleted<ExcalidrawTextElement> | null =
+            null;
 
           const selectedElements = this.scene.getSelectedElements(this.state);
-      
+
           if (selectedElements.length === 1) {
             if (isTextElement(selectedElements[0])) {
               existingTextElement = selectedElements[0];
@@ -8077,7 +8417,10 @@ class App extends React.Component<AppProps, AppState> {
                 this.scene.getNonDeletedElementsMap(),
               );
             } else {
-              existingTextElement = this.getTextElementAtPosition(sceneX, sceneY);
+              existingTextElement = this.getTextElementAtPosition(
+                sceneX,
+                sceneY,
+              );
             }
           } else {
             existingTextElement = this.getTextElementAtPosition(sceneX, sceneY);
@@ -8150,6 +8493,95 @@ class App extends React.Component<AppProps, AppState> {
     }
   };
 
+  //ymjr
+  private _hitTestCanvas = document.createElement("canvas");
+  private _hitTestCtx = this._hitTestCanvas.getContext("2d")!;
+  private _svgPathCache = new Map<
+    string,
+    { path: Path2D; signature: string }
+  >();
+
+  //ymjr
+  private isPointInSVGPath = (
+    element: ExcalidrawElement,
+    x: number,
+    y: number,
+  ): boolean => {
+    // 1. Base filter
+    if (
+      (!element.customData?.svgPathShape && !element.customData?.curveArrow) ||
+      element.isDeleted
+    ) {
+      return false;
+    }
+
+    const isCurve = !!element.customData?.curveArrow;
+    const threshold = 10;
+
+    // Perform strict bounding box check only if not a curve arrow
+    if (!isCurve) {
+      if (
+        x < element.x - threshold ||
+        x > element.x + element.width + threshold ||
+        y < element.y - threshold ||
+        y > element.y + element.height + threshold
+      ) {
+        return false;
+      }
+    }
+
+    try {
+      let pathStr = element.customData?.svgPathShape as string;
+
+      if (!pathStr && isCurve) {
+        const cachedShape = ShapeCache.generateElementShape(
+          element as any,
+          null,
+        );
+
+        // Read attached svgPathStr property
+        if (cachedShape) {
+          pathStr = (cachedShape as any).svgPathStr;
+        }
+      }
+
+      if (!pathStr) return false;
+
+      // 3. Cache Path2D object
+      let cache = this._svgPathCache.get(element.id);
+      if (!cache || cache.signature !== pathStr) {
+        cache = {
+          path: new Path2D(pathStr),
+          signature: pathStr,
+        };
+        this._svgPathCache.set(element.id, cache);
+      }
+
+      const path = cache.path;
+
+      this._hitTestCtx.lineWidth = (element.strokeWidth || 1) + 10; // 10px tolerance
+
+      const flipX = element.customData?.scaleX ?? 1;
+      const flipY = element.customData?.scaleY ?? 1;
+
+      let localX = x - element.x;
+      let localY = y - element.y;
+
+      if (flipX < 0) localX = element.width - localX;
+      if (flipY < 0) localY = element.height - localY;
+
+      if (this._hitTestCtx.isPointInStroke(path, localX, localY)) {
+        return true;
+      }
+    } catch (e) {
+      console.warn(`Hit test failed for element ${element.id}`, e);
+      this._svgPathCache.delete(element.id);
+    }
+
+    return false;
+  };
+
+  //ymjr
   private handleElementLinkClick = (
     event: React.PointerEvent<HTMLCanvasElement>,
   ) => {
@@ -8192,7 +8624,8 @@ class App extends React.Component<AppProps, AppState> {
     if (lastPointerDownHittingLinkIcon && lastPointerUpHittingLinkIcon) {
       hideHyperlinkToolip();
       let url = this.hitLinkElement.link;
-      if (url || this.hitLinkElement.hasTextLink) { //zsviczian
+      if (url || this.hitLinkElement.hasTextLink) {
+        //zsviczian
         url = normalizeLink(url ?? ""); //zsviczian
         let customEvent;
         if (this.props.onLinkOpen) {
@@ -8224,7 +8657,7 @@ class App extends React.Component<AppProps, AppState> {
    * link is being hovered.
    */
   private applyElementLinkHoverAffordance = (
-    event: React.PointerEvent<HTMLCanvasElement> //zsviczian
+    event: React.PointerEvent<HTMLCanvasElement>, //zsviczian
   ): boolean => {
     if (
       this.hitLinkElement &&
@@ -8316,7 +8749,8 @@ class App extends React.Component<AppProps, AppState> {
     this.hitLinkElement = this.isLinksEnabled()
       ? this.getElementLinkAtPosition(scenePointer, hitElementMightBeLocked)
       : undefined;
-    if (!this.applyElementLinkHoverAffordance(event)) { //zsviczian
+    if (!this.applyElementLinkHoverAffordance(event)) {
+      //zsviczian
       this.cursor.reset();
     }
   };
@@ -8365,13 +8799,12 @@ class App extends React.Component<AppProps, AppState> {
     },
   ) => {
     const elementsMap = this.scene.getNonDeletedElementsMap();
-    const framesUnderCursor = this.scene
-      .getNonDeletedFramesLikes()
-      .filter(
-        (frame) =>
-          !frame.locked && isCursorInFrame(sceneCoords, frame, elementsMap) &&
-          frame.frameRole !== "marker", //zsviczian
-      );
+    const framesUnderCursor = this.scene.getNonDeletedFramesLikes().filter(
+      (frame) =>
+        !frame.locked &&
+        isCursorInFrame(sceneCoords, frame, elementsMap) &&
+        frame.frameRole !== "marker", //zsviczian
+    );
 
     if (!framesUnderCursor.length) {
       return null;
@@ -8461,7 +8894,10 @@ class App extends React.Component<AppProps, AppState> {
     );
   };
 
-  public insertNewElements = (elements: readonly ExcalidrawElement[], idx?: number) => {
+  public insertNewElements = (
+    elements: readonly ExcalidrawElement[],
+    idx?: number,
+  ) => {
     //zsviczian added idx for highligher pens
     if (!elements.length) {
       return;
@@ -8564,11 +9000,10 @@ class App extends React.Component<AppProps, AppState> {
     ) {
       if (isOverScrollBar) {
         //zsviczian https://github.com/zsviczian/obsidian-excalidraw-plugin/issues/1659
-        const cursor = isPenFreedraw &&
-          this.interactiveCanvas &&
-          hideFreedrawPenmodeCursor()
-          ? "none"
-          : CURSOR_TYPE.AUTO;
+        const cursor =
+          isPenFreedraw && this.interactiveCanvas && hideFreedrawPenmodeCursor()
+            ? "none"
+            : CURSOR_TYPE.AUTO;
         this.cursor.set(cursor);
       } else {
         this.cursor.applyForTool();
@@ -8990,7 +9425,11 @@ class App extends React.Component<AppProps, AppState> {
         !this.state.contextMenu &&
         !this.state.showHyperlinkPopup
       ) {
-        this.setState({ showHyperlinkPopup: "info" });
+        this.setState({
+          showHyperlinkPopup: /*ymjr*/ !hitElement.link
+            ? false
+            : /*ymjr*/ "info",
+        });
       } else if (this.state.activeTool.type === "text") {
         this.cursor.set(
           hoveredArrowTextAnchor
@@ -9014,11 +9453,28 @@ class App extends React.Component<AppProps, AppState> {
       } else if (isOverScrollBar) {
         this.cursor.set(CURSOR_TYPE.AUTO);
       } else if (
-        // if using cmd/ctrl, we're not dragging
-        !event[KEYS.CTRL_OR_CMD] &&
-        // editing text -> don't show move cursor when hovering over its bbox
-        hitElement?.id !== this.state.editingTextElement?.id
+        /*ymjr*/ !hitElement ||
+        (!hitElement?.customData?.iframe?.onhover /*ymjr*/ &&
+          // if using cmd/ctrl, we're not dragging
+          !event[KEYS.CTRL_OR_CMD] &&
+          // editing text -> don't show move cursor when hovering over its bbox
+          hitElement?.id !== this.state.editingTextElement?.id)
       ) {
+        /*ymjr*/
+        if (!("lastEl" in this) || hitElement != this.lastEl) {
+          if (this.lastEl && this.lastEl?.customData?.iframe?.onmouseout) {
+            new Function(
+              "e",
+              "event",
+              "x",
+              "y",
+              "el",
+              `${this.lastEl.customData.iframe.onmouseout};e.setState({activeIFrame:null});return true`,
+            )(this, event, scenePointerX, scenePointerY, this.lastEl);
+          }
+          this.lastEl = hitElement;
+        }
+        /*ymjr*/
         if (
           (hitElement ||
             this.isHittingCommonBoundingBoxOfSelectedElements(
@@ -9052,6 +9508,29 @@ class App extends React.Component<AppProps, AppState> {
           scenePointerY,
         );
       }
+    }
+
+    // (window as any)?.handleCanvasPointerMove_Hook?.(this, event, hitElement, this.hitElement.bind(this), scenePointer)
+    const core = (window as any).EA_Core;
+    if (core) {
+      const payload = {
+        App: this,
+        event,
+        hitElement,
+        isHitElement: this.hitElement.bind(this),
+        scenePointer,
+        utils: {
+          getElementAbsoluteCoords,
+          getLinkHandleFromCoords,
+          pointRotateRads,
+          hitElementBoundingBox,
+        },
+      };
+      // ymjr: allow the host to intercept pointer movement.
+      const isIntercepted = core.dispatchSync(
+        "handleCanvasPointerMove",
+        payload,
+      );
     }
 
     if (this.state.openDialog?.name === "elementLinkSelector" && hitElement) {
@@ -9280,6 +9759,26 @@ class App extends React.Component<AppProps, AppState> {
     }
 
     const scenePointer = viewportCoordsToSceneCoords(event, this.state);
+
+    //ymjr
+    // (window as any)?.handleCanvasPointerDown_Hook?.(this)
+    const core = (window as any).EA_Core;
+    if (core) {
+      const payload = {
+        App: this,
+        event: event,
+        scenePointer,
+      };
+      // ymjr: allow the host to intercept pointer down.
+      const isIntercepted = core.dispatchSync(
+        "handleCanvasPointerDown",
+        payload,
+      );
+      if (isIntercepted) {
+        return;
+      }
+    }
+
     const { x: scenePointerX, y: scenePointerY } = scenePointer;
     this.lastPointerMoveCoords = {
       x: scenePointerX,
@@ -9804,6 +10303,31 @@ class App extends React.Component<AppProps, AppState> {
         selectedElementIds: {},
       });
     }
+    //ymjr
+    const hitElement = this.getElementAtPosition(
+      scenePointer.x,
+      scenePointer.y,
+      {
+        includeLockedElements: true,
+      },
+    );
+    // (window as any)?.handleCanvasPointerUp_Hook?.(this)
+    const core = (window as any).EA_Core;
+    if (core) {
+      const payload = {
+        App: this,
+        event,
+        scenePointer,
+        utils: {
+          getElementAbsoluteCoords,
+          getLinkHandleFromCoords,
+          pointRotateRads,
+          hitElementBoundingBox,
+        },
+      };
+      // ymjr: allow the host to intercept pointer up.
+      const isIntercepted = core.dispatchSync("handleCanvasPointerUp", payload);
+    }
   };
 
   private maybeOpenContextMenuAfterPointerDownOnTouchDevices = (
@@ -9861,7 +10385,8 @@ class App extends React.Component<AppProps, AppState> {
     });
 
     if (gesture.pointers.size === 2) {
-      if (shouldDisableZoom(this.state)) { //zsviczian
+      if (shouldDisableZoom(this.state)) {
+        //zsviczian
         gesture.initialDistance = null;
       } else {
         gesture.lastCenter = getCenter(gesture.pointers);
@@ -10256,10 +10781,8 @@ class App extends React.Component<AppProps, AppState> {
           (el) => this.state.selectedElementIds[el.id],
         ); //zsviczian
         // Prioritize unlocked elements over locked ones
-        if (
-          !isUnlockedHitElSelected &&
-          unlockedHitElements.length > 0
-        ) { //zsviczian https://github.com/excalidraw/excalidraw/pull/9582
+        if (!isUnlockedHitElSelected && unlockedHitElements.length > 0) {
+          //zsviczian https://github.com/excalidraw/excalidraw/pull/9582
           // If there are unlocked elements, use the topmost one
           pointerDownState.hit.element =
             unlockedHitElements[unlockedHitElements.length - 1];
@@ -10334,6 +10857,21 @@ class App extends React.Component<AppProps, AppState> {
           this.clearSelection(hitElement);
         }
 
+        // ymjr
+        const core = (window as any).EA_Core;
+        let shouldSelect = false;
+        if (core) {
+          const context = {
+            element: hitElement,
+            elementsMap,
+            shouldSelect: true,
+            event,
+            pointerDownState,
+          };
+          core.dispatchSync("shouldSelectElement", context, false);
+          shouldSelect = context.shouldSelect;
+        }
+
         if (this.state.selectedLinearElement?.isEditing) {
           this.setState((prevState) => ({
             selectedLinearElement: prevState.selectedLinearElement
@@ -10355,7 +10893,8 @@ class App extends React.Component<AppProps, AppState> {
               : makeNextSelectedElementIds({}, prevState),
           }));
           // If we click on something
-        } else if (hitElement != null) {
+        } else if (hitElement && shouldSelect) {
+          //ymjr
           // == deep selection ==
           // on CMD/CTRL, drill down to hit element regardless of groups etc.
           if (event[KEYS.CTRL_OR_CMD]) {
@@ -11058,7 +11597,19 @@ class App extends React.Component<AppProps, AppState> {
               locked: false,
               frameId: topLayerFrame ? topLayerFrame.id : null,
             });
-
+      if (this.state.currentItemSnap && this.state.currentItemSnap !== "none") {
+        //ymjr
+        //@ts-ignore
+        element.customData = {
+          ...element.customData,
+          snap: this.state.currentItemSnap,
+        };
+      }
+      if (this.state.currentItemArrowType == ARROW_TYPE.curve) {
+        //ymjr
+        //@ts-ignore
+        element.customData = { ...element.customData, curveArrow: true };
+      }
       const point = pointFrom<GlobalPoint>(
         pointerDownState.origin.x,
         pointerDownState.origin.y,
@@ -11162,6 +11713,19 @@ class App extends React.Component<AppProps, AppState> {
       if (isBindingElement(element) && getFeatureFlag("COMPLEX_BINDINGS")) {
         this.handleDelayedBindModeChange(element, boundElement);
       }
+      // @ts-ignore
+      // window.handleLinearElementOnPointerDownHook && window.handleLinearElementOnPointerDownHook(this, element, event)
+      const core = (window as any).EA_Core;
+      if (core) {
+        const isIntercepted = core.dispatchSync(
+          "handleLinearElementOnPointerDown",
+          {
+            App: this,
+            element,
+            event,
+          },
+        );
+      }
     }
   };
 
@@ -11246,6 +11810,14 @@ class App extends React.Component<AppProps, AppState> {
         type: elementType,
         ...baseElementAttributes,
       });
+      // if (this.state.currentItemSnap && this.state.currentItemSnap !== "none") { //ymjr
+      //   //@ts-ignore
+      //   element.customData = { ...element.customData, snap: this.state.currentItemSnap };
+      // }
+      // if (this.state.currentItemArrowType == ARROW_TYPE.curve) { //ymjr
+      //   //@ts-ignore
+      //   element.customData = { ...element.customData, curveArrow: true };
+      // }
     }
 
     if (element.type === "selection") {
@@ -11508,6 +12080,8 @@ class App extends React.Component<AppProps, AppState> {
 
       if (this.state.selectedLinearElement) {
         const linearElementEditor = this.state.selectedLinearElement;
+        const currentElement = elementsMap.get(linearElementEditor.elementId); //ymjr
+        const isCurveArrow = currentElement?.customData?.curveArrow; //ymjr
 
         // Handle focus point dragging if needed
         if (linearElementEditor.draggedFocusPointBinding) {
@@ -11545,6 +12119,7 @@ class App extends React.Component<AppProps, AppState> {
         }
 
         if (
+          !isCurveArrow && //ymjr
           LinearElementEditor.shouldAddMidpoint(
             this.state.selectedLinearElement,
             pointerCoords,
@@ -11880,9 +12455,34 @@ class App extends React.Component<AppProps, AppState> {
           // when we're editing the name of a frame, we want the user to be
           // able to select and interact with the text input
           if (!this.state.editingFrame) {
+            //ymjr
+            let elementsToDrag: NonDeletedExcalidrawElement[] =
+              selectedElements;
+
+            const core = (window as any).EA_Core;
+            if (core) {
+              const hookCtx = {
+                App: this,
+                selectedElements,
+                elementsToDrag,
+                pointerDownState,
+              };
+              core.dispatchSync("modifyElementsToDrag", hookCtx);
+              elementsToDrag = hookCtx.elementsToDrag;
+            }
+
+            elementsToDrag.forEach((element) => {
+              if (!pointerDownState.originalElements.has(element.id)) {
+                pointerDownState.originalElements.set(
+                  element.id,
+                  deepCopyElement(element),
+                );
+              }
+            });
+
             dragSelectedElements(
               pointerDownState,
-              selectedElements,
+              elementsToDrag, //ymjr
               dragOffset,
               this.scene,
               snapOffset,
@@ -12445,6 +13045,29 @@ class App extends React.Component<AppProps, AppState> {
         childEvent,
       );
 
+      const core = (window as any).EA_Core;
+      const hookContext = {
+        App: this, // Allows hook to invoke app.setState, app.scene.mutateElement, etc.
+        appState: this.state,
+        childEvent,
+        pointerDownState,
+        elementsMap,
+        hitElement: pointerDownState.hit.element,
+        shouldSelectHitElement: true,
+      };
+
+      if (core) {
+        const hookResult = core.dispatchSync(
+          "onPointerUpFromPointerDown",
+          hookContext,
+          false,
+        );
+
+        if (!hookResult) {
+          return;
+        }
+      }
+
       if (newElement?.type === "freedraw") {
         const pointerCoords = viewportCoordsToSceneCoords(
           childEvent,
@@ -12496,7 +13119,11 @@ class App extends React.Component<AppProps, AppState> {
           newElement &&
           !multiElement
         ) {
-          if (this.editorInterface.isTouchScreen && newElement.points.length > 1) { //zsviczian
+          if (
+            this.editorInterface.isTouchScreen &&
+            newElement.points.length > 1
+          ) {
+            //zsviczian
             const FIXED_DELTA_X = Math.min(
               (this.state.width * 0.7) / this.state.zoom.value,
               100,
@@ -12901,7 +13528,13 @@ class App extends React.Component<AppProps, AppState> {
 
       // Code below handles selection when element(s) weren't
       // drag or added to selection on pointer down phase.
-      const hitElement = pointerDownState.hit.element;
+      let hitElement = hookContext.hitElement; // ymjr
+
+      if (hitElement && !hookContext.shouldSelectHitElement) {
+        // ymjr
+        hitElement = null;
+      }
+
       if (
         this.state.selectedLinearElement?.elementId !== hitElement?.id &&
         isLinearElement(hitElement)
@@ -13089,7 +13722,7 @@ class App extends React.Component<AppProps, AppState> {
                   this,
                 ),
                 showHyperlinkPopup:
-                  hitElement.link || isEmbeddableElement(hitElement)
+                  hitElement?.link || isEmbeddableElement(hitElement)
                     ? "info"
                     : false,
               };
@@ -13111,7 +13744,7 @@ class App extends React.Component<AppProps, AppState> {
             ...selectGroupsForSelectedElements(
               {
                 editingGroupId: prevState.editingGroupId,
-                selectedElementIds: { [hitElement.id]: true },
+                selectedElementIds: { [hitElement!.id]: true },
               },
               this.scene.getNonDeletedElements(),
               prevState,
@@ -13136,6 +13769,8 @@ class App extends React.Component<AppProps, AppState> {
         this.state.activeTool.type !== "lasso" &&
         // not elbow midpoint dragged
         !(hitElement && isElbowArrow(hitElement)) &&
+        !(hitElement && hitElement.customData?.svgPathShape) && //ymjr
+        !(hitElement && hitElement.customData?.curveArrow) && //ymjr
         // not dragged
         !pointerDownState.drag.hasOccurred &&
         // not resized
@@ -13619,6 +14254,7 @@ class App extends React.Component<AppProps, AppState> {
       fileIds: elements.map((element) => element.fileId),
       files,
       createImage: () => new this.ownerWindow.Image(), // zsviczian -- decode images in the mounted editor realm, upstream #11974 follow-up
+      elements: Array.from(elements),
     });
 
     // zsviczian START -- an Obsidian popout may unmount while image decoding is pending
@@ -13833,7 +14469,8 @@ class App extends React.Component<AppProps, AppState> {
   };
 
   private handleAppOnDrop = async (event: React.DragEvent<HTMLDivElement>) => {
-    if (this.props.onDrop) { //zsviczian
+    if (this.props.onDrop) {
+      //zsviczian
       try {
         if ((await this.props.onDrop(event)) === false) {
           return;
@@ -14060,10 +14697,12 @@ class App extends React.Component<AppProps, AppState> {
     // when it comes with the press (macOS and Linux fire it on mousedown,
     // and the session opens the menu on release if no drag follows), nor
     // when it follows a release that was a drag
-    if (this.pan.consumesContextMenuEvent() && !isMiroKeyboardShortcut) { //zsviczian
+    if (this.pan.consumesContextMenuEvent() && !isMiroKeyboardShortcut) {
+      //zsviczian
       return;
     }
-    if (this.state.disableContextMenu && !isMiroKeyboardShortcut) { //zsviczian
+    if (this.state.disableContextMenu && !isMiroKeyboardShortcut) {
+      //zsviczian
       return;
     }
     this.openContextMenu({
@@ -14266,6 +14905,12 @@ class App extends React.Component<AppProps, AppState> {
     this.setState({
       newElement,
     });
+
+    //ymjr
+    const core = (window as any).EA_Core;
+    if (core && newElement) {
+      core.dispatchSync("afterCreateGenericElement", { App: this, newElement });
+    }
 
     // highlight elements that are to be added to frames on frames creation
     if (
@@ -14499,6 +15144,17 @@ class App extends React.Component<AppProps, AppState> {
       )
     ) {
       const elementsToHighlight = new Set<NonDeletedExcalidrawElement>();
+      // /*ymjr*/(window as any)?.afterTransformElementsHook?.(transformHandleType, selectedElements);/*ymjr*/
+      const core = (window as any).EA_Core;
+      if (core) {
+        // ymjr: notify the host after element transforms.
+        core.dispatchSync("afterTransformElements", {
+          App: this,
+          transformHandleType,
+          selectedElements,
+          elementsToHighlight,
+        });
+      }
       selectedFrames.forEach((frame) => {
         getElementsInResizingFrame(
           this.scene.getNonDeletedElements(),

@@ -30,9 +30,12 @@ export interface FontMetadata {
   local?: true;
   /** flag to indicate a fallback font */
   fallback?: true;
+
+  fontName?: string;
 }
 
-export const FONT_METADATA: Record<number, FontMetadata> = {
+export const FONT_METADATA: Record<number | string, FontMetadata> = {
+  //ymjr
   [FONT_FAMILY.Excalifont]: {
     metrics: {
       unitsPerEm: 1000,

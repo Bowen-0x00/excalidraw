@@ -40,7 +40,8 @@ export const DEFAULT_FONTS = [
     text: t("labels.code"),
     testId: "font-family-code",
   },
-  { //zsviczian
+  {
+    //zsviczian
     value: FONT_FAMILY["Lilita One"],
     icon: FontFamilyBoldIcon,
     text: t("labels.bold"),
@@ -50,11 +51,13 @@ export const DEFAULT_FONTS = [
 
 const defaultFontFamilies = new Set(DEFAULT_FONTS.map((x) => x.value));
 
-export const isDefaultFont = (fontFamily: number | null) => {
+export const isDefaultFont = (fontFamily: number | string | null) => { //ymjr
   if (!fontFamily) {
     return false;
   }
-
+  if (typeof fontFamily != "number") {
+    return false; //ymjr
+  }
   return defaultFontFamilies.has(fontFamily);
 };
 
@@ -82,7 +85,7 @@ export const FontPicker = React.memo(
   }: FontPickerProps) => {
     const defaultFonts = useMemo(() => DEFAULT_FONTS, []);
     const onSelectCallback = useCallback(
-      (value: number | false) => {
+      (value: number | string | false) => { //ymjr
         if (value) {
           onSelect(value);
         }

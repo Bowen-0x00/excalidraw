@@ -47,6 +47,7 @@ import { FreedrawIcon, TrashIcon, elementLinkIcon, searchIcon } from "../icons";
 import { getSelectedElements } from "../../scene";
 
 import { attachInlineLinkSuggester } from "../../obsidianUtils"; //zsviczian
+import { hasObsidianExcalidrawHost } from "../../obsidianExcalidrawHost"; //ymjr
 
 import { getLinkHandleFromCoords } from "./helpers";
 
@@ -199,7 +200,6 @@ export const Hyperlink = ({
     }
   }, [isEditing, editorInterface.formFactor, editorInterface.isTouchScreen]);
 
-
   // zsviczian - keep input state in sync with native mutations (e.g. Obsidian suggester)
   useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -224,7 +224,7 @@ export const Hyperlink = ({
 
   //zsviczian - attach link suggester
   useEffect(() => {
-    if (!isEditing || !inputRef.current) {
+    if (!isEditing || !inputRef.current || !hasObsidianExcalidrawHost() /*ymjr*/) {
       return;
     }
     const keyBlocker = attachInlineLinkSuggester(
@@ -482,7 +482,8 @@ const renderTooltip = (
   elementsMap: ElementsMap,
   ownerDocument: Document, // zsviczian -- resolve the document-local tooltip singleton, upstream #11974 follow-up
 ) => {
-  if (!(element.link || element.hasTextLink)) {//zsviczian
+  if (!(element.link || element.hasTextLink)) {
+    //zsviczian
     return;
   }
 

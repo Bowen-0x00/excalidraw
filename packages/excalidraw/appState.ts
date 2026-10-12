@@ -39,6 +39,7 @@ export const getDefaultAppState = (): Omit<
     currentItemRoughness: DEFAULT_ELEMENT_PROPS.roughness,
     currentItemStrokeVariability: "constant",
     currentItemStartArrowhead: null,
+    currentItemArrowHeadSize: 0,
     currentItemStrokeColor: DEFAULT_ELEMENT_PROPS.strokeColor,
     currentItemStickynoteStrokeColor: DEFAULT_ELEMENT_PROPS.strokeColor,
     currentItemStickynoteBackgroundColor: DEFAULT_STICKY_NOTE_BG,
@@ -50,6 +51,7 @@ export const getDefaultAppState = (): Omit<
     currentItemTextAlign: DEFAULT_TEXT_ALIGN,
     currentHoveredFontFamily: null,
     currentItemFrameRole: null, //zsviczian
+    currentItemSnap: "none", //ymjr
     cursorButton: "up",
     activeEmbeddable: null,
     newElement: null,
@@ -214,6 +216,7 @@ const APP_STATE_STORAGE_CONF = (<
     server: false,
   },
   currentItemStartArrowhead: { browser: true, export: false, server: false },
+  currentItemArrowHeadSize: { browser: true, export: false, server: false }, //ymjr
   currentItemStrokeColor: { browser: true, export: false, server: false },
   currentItemStickynoteStrokeColor: {
     browser: true,
@@ -231,6 +234,7 @@ const APP_STATE_STORAGE_CONF = (<
   currentItemTextAlign: { browser: true, export: false, server: false },
   currentHoveredFontFamily: { browser: false, export: false, server: false },
   currentItemFrameRole: { browser: true, export: false, server: false }, //zsviczian
+  currentItemSnap: { browser: true, export: false, server: false }, //ymjr
   cursorButton: { browser: true, export: false, server: false },
   activeEmbeddable: { browser: false, export: false, server: false },
   newElement: { browser: false, export: false, server: false },

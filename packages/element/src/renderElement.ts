@@ -94,6 +94,9 @@ import type {
 
 import type { RoughCanvas } from "roughjs/bin/canvas";
 import { isIframeLikeElement } from "@excalidraw/element/typeChecks";
+
+import { getArrowheadSize } from "./bounds"; //ymjr
+
 import { getFreeDrawSvgPath } from "./freedrawPath";
 
 const isPendingImageElement = (
@@ -239,13 +242,21 @@ const cappedElementCanvasSize = (
   const padding = getCanvasPadding(element);
 
   const [x1, y1, x2, y2] = getElementAbsoluteCoords(element, elementsMap);
+  //@ts-ignore
+  // ymjr: preserve custom arrowhead scaling.
+  const arrowHeadSize =
+    element.type == "arrow" && element?.customData?.arrowHeadSize
+      ? getArrowheadSize(
+          element.endArrowhead || element.startArrowhead || "arrow",
+        ) * element.customData.arrowHeadSize
+      : 0;
   const elementWidth =
     isLinearElement(element) || isFreeDrawElement(element)
-      ? distance(x1, x2)
+      ? distance(x1, x2) + arrowHeadSize //ymjr
       : element.width;
   const elementHeight =
     isLinearElement(element) || isFreeDrawElement(element)
-      ? distance(y1, y2)
+      ? distance(y1, y2) + arrowHeadSize //ymjr
       : element.height;
 
   let width = elementWidth * window.devicePixelRatio + padding * 2;
@@ -438,6 +449,21 @@ const drawElementOnCanvas = (
   context: CanvasRenderingContext2D,
   renderConfig: StaticCanvasRenderConfig,
 ) => {
+  //   if (window.drawElementOnCanvasHook(element, context, renderConfig, rc)) {
+  //     return;
+  //   }
+  // ymjr
+  const core = (window as any).EA_Core;
+  // ymjr: allow the host to intercept direct canvas drawing.
+  if (core) {
+    const isIntercepted = core.dispatchSync("drawElementOnCanvas", {
+      element,
+      context,
+      renderConfig,
+      rc,
+    });
+    if (isIntercepted) return;
+  }
   switch (element.type) {
     case "stickynote": {
       context.save();
@@ -479,16 +505,23 @@ const drawElementOnCanvas = (
     case "embeddable":
     case "diamond":
     case "ellipse": {
-      context.lineJoin = "round";
-      context.lineCap = "round";
-
-      rc.draw(ShapeCache.generateElementShape(element, renderConfig));
+      context.lineJoin = element?.customData?.strokeLineJoin ?? "round"; //ymjr
+      context.lineCap = element?.customData?.strokeLineCap ?? "round"; //ymjr
+      const shapeOrShapes = ShapeCache.generateElementShape(
+        element,
+        renderConfig,
+      ); //ymjr
+      if (Array.isArray(shapeOrShapes)) {
+        shapeOrShapes.forEach((shape) => rc.draw(shape));
+      } else if (shapeOrShapes) {
+        rc.draw(shapeOrShapes);
+      }
       break;
     }
     case "arrow":
     case "line": {
-      context.lineJoin = "round";
-      context.lineCap = "round";
+      context.lineJoin = element?.customData?.strokeLineJoin ?? "round"; //ymjr
+      context.lineCap = element?.customData?.strokeLineCap ?? "round"; //ymjr
 
       ShapeCache.generateElementShape(element, renderConfig).forEach(
         (shape) => {
@@ -505,7 +538,8 @@ const drawElementOnCanvas = (
 
       for (const shape of shapes) {
         if (typeof shape === "string") {
-          const { path, fillStyle } = (() => { //zsviczian
+          const { path, fillStyle } = (() => {
+            //zsviczian
             const path = element.customData?.strokeOptions
               ? new Path2D(getFreeDrawSvgPath(element))
               : new Path2D(shape);
@@ -579,11 +613,19 @@ const drawElementOnCanvas = (
               width: img.naturalWidth,
               height: img.naturalHeight,
             };
-
+        const sourceImg =
+          cacheEntry?.isAnimated &&
+          cacheEntry.frames != null &&
+          !(cacheEntry.frames instanceof Promise) //ymjr
+            ? cacheEntry.frames[element?.customData?.gif?.index || 0]?.bitmap ||
+              img
+            : img;
         const shouldInvertImage =
           renderConfig.theme === THEME.DARK &&
-          ((cacheEntry?.mimeType === MIME_TYPES.svg && !element.customData?.doNotInvertSVGInDarkMode) ||
-            (!!element.customData?.pdfPageViewProps && (element.customData?.invertBitmapInDarkmode ?? true)) ||
+          ((cacheEntry?.mimeType === MIME_TYPES.svg &&
+            !element.customData?.doNotInvertSVGInDarkMode) ||
+            (!!element.customData?.pdfPageViewProps &&
+              (element.customData?.invertBitmapInDarkmode ?? true)) ||
             !!element.customData?.invertBitmapInDarkmode); //zsviczian
 
         if (shouldInvertImage && isIOS) {
@@ -596,7 +638,7 @@ const drawElementOnCanvas = (
           if (tempContext) {
             tempContext.scale(devicePixelRatio, devicePixelRatio);
             tempContext.drawImage(
-              img,
+              sourceImg, //ymjr
               x,
               y,
               width,
@@ -641,7 +683,7 @@ const drawElementOnCanvas = (
           }
 
           context.drawImage(
-            img,
+            sourceImg, //ymjr
             x,
             y,
             width,
@@ -690,19 +732,46 @@ const drawElementOnCanvas = (
           element.fontSize,
           element.lineHeight,
         );
-
         const verticalOffset = getVerticalOffset(
           element.fontFamily,
           element.fontSize,
           lineHeightPx,
         );
-
-        for (let index = 0; index < lines.length; index++) {
-          context.fillText(
-            lines[index],
+        /*ymjr*/
+        let skipFlag = false;
+        // if ((window as any)?.drawElementOnCanvas_TextHook_before?.(element, context, lines, horizontalOffset, verticalOffset, lineHeightPx)) {
+        //   skipFlag = true;
+        // }
+        const core = (window as any).EA_Core;
+        if (core) {
+          const payload = {
+            element,
+            context,
+            lines,
             horizontalOffset,
-            index * lineHeightPx + verticalOffset,
+            verticalOffset,
+            lineHeightPx,
+          };
+          skipFlag = core.dispatchSync(
+            "drawElementOnCanvasTextBefore",
+            payload,
           );
+        }
+        if (!skipFlag) {
+          /*ymjr*/
+          for (let index = 0; index < lines.length; index++) {
+            context.fillText(
+              lines[index],
+              horizontalOffset,
+              index * lineHeightPx + verticalOffset,
+            );
+          }
+          /*ymjr*/
+        }
+        // (window as any)?.drawElementOnCanvas_TextHook_after?.(element, context);/*ymjr*/
+        if (core) {
+          const payload = { element, context };
+          core.dispatchSync("drawElementOnCanvasTextAfter", payload);
         }
         context.restore();
         if (shouldTemporarilyAttach) {
@@ -818,11 +887,27 @@ const drawElementFromCanvas = (
   const cy =
     ((y1 + y2) / 2 + positionOffset.y + appState.scrollY) * devicePixelRatio;
 
+  // ymjr
+  const core = (window as any).EA_Core;
+  // ymjr: allow the host to intercept cached-canvas drawing.
+  if (
+    core?.dispatchSync("drawElementFromCanvas", {
+      elementWithCanvas,
+      context,
+      renderConfig,
+      appState,
+      allElementsMap,
+      getElementAbsoluteCoords,
+      renderElement,
+    })
+  ) {
+    return;
+  }
+
   context.save();
   context.scale(1 / devicePixelRatio, 1 / devicePixelRatio);
 
   const boundTextElement = getBoundTextElement(element, allElementsMap);
-
   if (isArrowElement(element) && boundTextElement) {
     // punch the label "hole" by clipping the arrow's blit out of the label
     // rect (even-odd) instead of baking a rotated arrow copy with a cleared
@@ -981,12 +1066,22 @@ export const renderSelectionElement = (
   selectionColor: InteractiveCanvasRenderConfig["selectionColor"],
 ) => {
   context.save();
+  //ymjr++>>>
+  // if (element?.customData?.fixed) {
+  //   element = {
+  //     ...element,
+  //     width: element.width / appState.zoom.value,
+  //     height: element.height / appState.zoom.value,
+  //     x: -appState.scrollX + (element.x + appState.scrollX) / appState.zoom.value,
+  //     y: -appState.scrollY + (element.y + appState.scrollY) / appState.zoom.value
+  //   }
+  // }
+  //ymjr++>>>
   context.translate(element.x + appState.scrollX, element.y + appState.scrollY);
   context.fillStyle = applyDarkModeFilter(
     "rgba(0, 0, 200, 0.04)",
     appState.theme === THEME.DARK,
   );
-
   // render from 0.5px offset  to get 1px wide line
   // https://stackoverflow.com/questions/7530593/html5-canvas-and-line-width/7531540#7531540
   // TODO can be be improved by offseting to the negative when user selects
@@ -1059,12 +1154,36 @@ const drawElement = (
   appState: StaticCanvasAppState | InteractiveCanvasAppState,
   renderState: ElementRenderState,
 ) => {
+  // ymjr
+  const core = (window as any).EA_Core;
+  // ymjr: allow the host to intercept before element rendering.
+  if (
+    core?.dispatchSync("renderElementBefore", {
+      element,
+      rc,
+      context,
+      renderConfig,
+      appState,
+      getElementAbsoluteCoords,
+      drawElementFromCanvas,
+      generateElementWithCanvas,
+      allElementsMap,
+    })
+  ) {
+    return;
+  }
+
   switch (element.type) {
     case "magicframe":
     case "frame": {
-      if ( //zsviczian
-        appState.frameRendering.enabled && appState.frameRendering.outline &&
-        !(!appState.frameRendering.markerEnabled && element.frameRole === "marker")
+      if (
+        //zsviczian
+        appState.frameRendering.enabled &&
+        appState.frameRendering.outline &&
+        !(
+          !appState.frameRendering.markerEnabled &&
+          element.frameRole === "marker"
+        )
       ) {
         context.save();
         context.translate(
@@ -1099,7 +1218,12 @@ const drawElement = (
           context.setLineDash([dash, gap]);
         }
 
-        if (FRAME_STYLE.radius && context.roundRect && element.frameRole !== "marker") { //zsviczian
+        if (
+          FRAME_STYLE.radius &&
+          context.roundRect &&
+          element.frameRole !== "marker"
+        ) {
+          //zsviczian
           context.beginPath();
           context.roundRect(
             0,
@@ -1325,6 +1449,18 @@ const drawElement = (
       throw new Error(`Unimplemented type ${element.type}`);
     }
   }
+  // ymjr: notify the host after element rendering.
+  core?.dispatchSync("renderElementAfter", {
+    element,
+    rc,
+    context,
+    renderConfig,
+    appState,
+    getElementAbsoluteCoords,
+    drawElementFromCanvas,
+    generateElementWithCanvas,
+    allElementsMap,
+  });
 };
 
 export function getFreedrawOutlineAsSegments(

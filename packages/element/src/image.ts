@@ -12,6 +12,8 @@ import type {
 
 import { isInitializedImageElement } from "./typeChecks";
 
+import { decodeGifToBitmaps } from "./gif"; //ymjr
+
 import type {
   ExcalidrawElement,
   FileId,
@@ -59,17 +61,19 @@ export const updateImageCache = async ({
   files,
   imageCache,
   createImage, // zsviczian -- forward the editor-owned image factory, upstream #11974 follow-up
+  elements,
 }: {
   fileIds: FileId[];
   files: BinaryFiles;
   imageCache: AppClassProperties["imageCache"];
   createImage?: () => HTMLImageElement; // zsviczian -- preserve standalone callers through the default factory, upstream #11974 follow-up
+  elements?: InitializedExcalidrawImageElement[];
 }) => {
   const updatedFiles = new Map<FileId, true>();
   const erroredFiles = new Map<FileId, true>();
 
   await Promise.all(
-    fileIds.reduce((promises, fileId) => {
+    fileIds.reduce((promises, fileId, index) => {
       const fileData = files[fileId as string];
       if (fileData && !updatedFiles.has(fileId)) {
         updatedFiles.set(fileId, true);
@@ -87,14 +91,47 @@ export const updateImageCache = async ({
               const data = {
                 image: imagePromise,
                 mimeType: fileData.mimeType,
-              } as const;
+                isAnimated: false, //ymjr
+                frames: undefined, //ymjr
+              };
               // store the promise immediately to indicate there's an in-progress
               // initialization
               imageCache.set(fileId, data);
 
+              //ymjr: decode GIF frames if animated GIF element
+              if (
+                elements?.length &&
+                elements[index]?.customData?.gif &&
+                fileData.mimeType === MIME_TYPES.gif
+              ) {
+                data.isAnimated = true;
+                // @ts-ignore
+                data.frames = decodeGifToBitmaps(
+                  fileData.dataURL /*, opt scale */,
+                );
+                imageCache.set(fileId, data);
+              }
+
               const image = await imagePromise;
 
               imageCache.set(fileId, { ...data, image });
+              if (
+                elements?.length &&
+                elements[index]?.customData?.gif &&
+                fileData.mimeType === MIME_TYPES.gif
+              ) {
+                const cache = imageCache.get(fileId);
+                if (cache && cache.frames) {
+                  const framesResolved = Array.isArray(cache.frames)
+                    ? cache.frames
+                    : await cache.frames;
+
+                  cache.frames = framesResolved;
+                  elements[index]!.customData!.gif!.frameCount =
+                    framesResolved.length;
+                  imageCache.set(fileId, cache);
+                }
+              }
             } catch (error: any) {
               erroredFiles.set(fileId, true);
             }

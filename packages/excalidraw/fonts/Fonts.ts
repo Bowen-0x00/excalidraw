@@ -50,7 +50,7 @@ export class Fonts {
 
   private static _registered:
     | Map<
-        number,
+        number | string, //ymjr
         {
           metadata: FontMetadata;
           fontFaces: ExcalidrawFontFace[];
@@ -272,48 +272,61 @@ export class Fonts {
     charsPerFamily: Record<number, Set<string>>,
     ownerDocument: Document,
   ): Generator<Promise<void | readonly [number, FontFace[]]>> {
-    for (const [index, fontFamily] of fontFamilies.entries()) {
-      const font = getFontString({
-        fontFamily,
-        fontSize: FONT_SIZES.sm,
-      });
-
-      // WARN: without "text" param it does not have to mean that all font faces are loaded as it could be just one irrelevant font face!
-      // instead, we are always checking chars used in the family, so that no required font faces remain unloaded
-      const text = Fonts.getCharacters(charsPerFamily, fontFamily);
-
-      if (
-        !ownerDocument.fonts.check(font, text) &&
-        !font.startsWith("16px Local Font") && //zsviczian if Local Font is registered I can't change it dymamically
-        !font.startsWith("16px Helvetica") //zsviczian there is an error loading Helvetica font (need to validate the error still exists)
-      ) {
-        yield promiseTry(async () => {
-          try {
-            // WARN: browser prioritizes loading only font faces with unicode ranges for characters which are present in the document (html & canvas), other font faces could stay unloaded
-            // we might want to retry here, i.e.  in case CDN is down, but so far I didn't experience any issues - maybe it handles retry-like logic under the hood
-            const fontFaces = await ownerDocument.fonts.load(font, text);
-
-            return [index, fontFaces];
-          } catch (e) {
-            // don't let it all fail if just one font fails to load
-            console.error(
-              `Failed to load font "${font}" from urls "${Fonts.registered
-                .get(fontFamily)
-                ?.fontFaces.map((x) => x.urls)}"`,
-              e,
-            );
-          }
+    try {
+      for (const [index, fontFamily] of fontFamilies.entries()) {
+        const font = getFontString({
+          fontFamily,
+          fontSize: FONT_SIZES.sm,
         });
+
+        // WARN: without "text" param it does not have to mean that all font faces are loaded as it could be just one irrelevant font face!
+        // instead, we are always checking chars used in the family, so that no required font faces remain unloaded
+        const text = Fonts.getCharacters(charsPerFamily, fontFamily);
+
+        if (
+          !ownerDocument.fonts.check(font, text) &&
+          !font.startsWith("16px Local Font") && //zsviczian if Local Font is registered I can't change it dymamically
+          !font.startsWith("16px Helvetica") //zsviczian there is an error loading Helvetica font (need to validate the error still exists)
+        ) {
+          yield promiseTry(async () => {
+            try {
+              // WARN: browser prioritizes loading only font faces with unicode ranges for characters which are present in the document (html & canvas), other font faces could stay unloaded
+              // we might want to retry here, i.e.  in case CDN is down, but so far I didn't experience any issues - maybe it handles retry-like logic under the hood
+              const fontFaces = await ownerDocument.fonts.load(font, text);
+
+              return [index, fontFaces];
+            } catch (e) {
+              // don't let it all fail if just one font fails to load
+              console.error(
+                `Failed to load font "${font}" from urls "${Fonts.registered
+                  .get(fontFamily)
+                  ?.fontFaces.map((x) => x.urls)}"`,
+                e,
+              );
+            }
+          });
+        }
       }
+    } catch (e) {
+      console.error(e);
     }
   }
 
   private static *fontFacesStylesGenerator(
-    families: Array<number>,
+    families: Array<number | string>,
     charsPerFamily: Record<number, Set<string>>,
   ): Generator<Promise<void | readonly [number, string]>> {
     for (const [familyIndex, family] of families.entries()) {
-      const { fontFaces, metadata } = Fonts.registered.get(family) ?? {};
+      // ymjr
+      let mapKey = family;
+      if (typeof family === "number") {
+        mapKey =
+          Object.keys(FONT_FAMILY).find(
+            (k) => FONT_FAMILY[k as keyof typeof FONT_FAMILY] === family,
+          ) || family;
+      }
+
+      const { fontFaces, metadata } = Fonts.registered.get(mapKey) ?? {}; // ymjr
 
       if (!Array.isArray(fontFaces)) {
         console.error(
@@ -367,7 +380,7 @@ export class Fonts {
       | Fonts
       | {
           registered: Map<
-            number,
+            number | string,
             { metadata: FontMetadata; fontFaces: ExcalidrawFontFace[] }
           >;
         },
@@ -377,6 +390,7 @@ export class Fonts {
   ) {
     // TODO: likely we will need to abandon number value in order to support custom fonts
     const fontFamily =
+      family ??
       FONT_FAMILY[family as keyof typeof FONT_FAMILY] ??
       FONT_FAMILY_FALLBACKS[family as keyof typeof FONT_FAMILY_FALLBACKS];
 
@@ -453,7 +467,7 @@ export class Fonts {
           families.add(element.fontFamily);
         }
         return families;
-      }, new Set<number>()),
+      }, new Set<number | string>()),
     );
   }
 
@@ -463,7 +477,7 @@ export class Fonts {
   private static getCharsPerFamily(
     elements: ReadonlyArray<ExcalidrawElement>,
   ): Record<number, Set<string>> {
-    const charsPerFamily: Record<number, Set<string>> = {};
+    const charsPerFamily: Record<number | string, Set<string>> = {};
 
     for (const element of elements) {
       if (!isTextElement(element)) {
@@ -487,8 +501,8 @@ export class Fonts {
    * Get characters for a given family.
    */
   private static getCharacters(
-    charsPerFamily: Record<number, Set<string>>,
-    family: number,
+    charsPerFamily: Record<number | string, Set<string>>, //ymjr
+    family: number | string, //ymjr
   ) {
     return charsPerFamily[family]
       ? Array.from(charsPerFamily[family]).join("")

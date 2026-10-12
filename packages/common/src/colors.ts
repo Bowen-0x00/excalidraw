@@ -1,13 +1,23 @@
+import oc from "open-color";
 import tinycolor from "tinycolor2";
 
-import { clamp } from "@excalidraw/math";
-import { degreesToRadians } from "@excalidraw/math";
+//ymjr: inline math helpers to avoid circular package dependency
+// import { clamp } from "@excalidraw/math";
+// import { degreesToRadians } from "@excalidraw/math";
+import type { Merge } from "./utility-types";
 
-import type { Degrees } from "@excalidraw/math";
+export { tinycolor };
 
-// ---------------------------------------------------------------------------
-// Dark mode color transformation
-// ---------------------------------------------------------------------------
+type Degrees = number & { _brand: "excalimath_degree" };
+type Radians = number & { _brand: "excalimath__radian" };
+
+const clamp = (value: number, min: number, max: number) => {
+  return Math.min(Math.max(value, min), max);
+};
+
+function degreesToRadians(degrees: Degrees): Radians {
+  return ((degrees * Math.PI) / 180) as Radians;
+}
 
 // Browser-only cache to avoid memory leaks on server
 const DARK_MODE_COLORS_CACHE: Map<string, string> | null =
@@ -81,6 +91,25 @@ const cssInvert = (
   const invertedB = invertComponent(b);
 
   return { r: invertedR, g: invertedG, b: invertedB };
+};
+
+//ymjr
+export const rgbToHex = (r: number, g: number, b: number, a?: number) => {
+  // (1 << 24) adds 0x1000000 to ensure the hex string is always 7 chars,
+  // then slice(1) removes the leading "1" to get exactly 6 hex digits
+  // e.g. rgb(0,0,0) -> 0x1000000 -> "1000000" -> "000000"
+  const hex6 = `#${((1 << 24) + (r << 16) + (g << 8) + b)
+    .toString(16)
+    .slice(1)}`;
+  if (a !== undefined && a < 1) {
+    // convert alpha from 0-1 float to 0-255 int, then to 2-digit hex
+    // e.g. 0.5 -> 128 -> "80"
+    const alphaHex = Math.round(a * 255)
+      .toString(16)
+      .padStart(2, "0");
+    return `${hex6}${alphaHex}`;
+  }
+  return hex6;
 };
 
 export const applyDarkModeFilter = (color: string, enable = true): string => {
@@ -160,9 +189,71 @@ export const removeDarkModeFilter = (color: string): string => {
 };
 
 // ---------------------------------------------------------------------------
-// Color palette
-// ---------------------------------------------------------------------------
 
+// Helper to safely get colors from the hook
+const getExtraColors = (): { name: string; value: string }[] => {
+  const core = (window as any).EA_Core;
+  if (core) {
+    const context = {
+      colors: [] as { name: string; value: string }[],
+    };
+
+    core.dispatchSync("excalidrawExtraColors", context);
+
+    return context.colors;
+  }
+  return [];
+};
+
+//ymjr: 1. Color calculation utility: generates color shade scale
+const generateShades = (base: string): ColorTuple => {
+  // ymjr: If dynamically injected transparent placeholder, return fully transparent shades directly and skip CM instantiation
+  if (base === "transparent") {
+    return [
+      "transparent",
+      "transparent",
+      "transparent",
+      "transparent",
+      "transparent",
+    ];
+  }
+
+  const ea = (window as any).ExcalidrawAutomate;
+
+  // 1. Safety check
+  if (!ea?.getCM) {
+    console.warn("ExcalidrawAutomate not ready");
+    return [base, base, base, base, base];
+  }
+
+  // 2. Obtain base lightness
+  const baseL = ea.getCM(base).lightness;
+
+  // 3. Compute step
+  const step = Math.min(10, (100 - baseL) / 4);
+
+  // 4. Generate shades
+  return [
+    ea
+      .getCM(base)
+      .lighterBy(step * 4)
+      .stringHEX(),
+    ea
+      .getCM(base)
+      .lighterBy(step * 3)
+      .stringHEX(),
+    ea
+      .getCM(base)
+      .lighterBy(step * 2)
+      .stringHEX(),
+    ea
+      .getCM(base)
+      .lighterBy(step * 1)
+      .stringHEX(),
+    base,
+  ];
+};
+//ymjr
 // FIXME can't put to utils.ts rn because of circular dependency
 const pick = <R extends Record<string, any>, K extends readonly (keyof R)[]>(
   source: R,
@@ -176,7 +267,20 @@ const pick = <R extends Record<string, any>, K extends readonly (keyof R)[]>(
   }, {} as Pick<R, K[number]>) as Pick<R, K[number]>;
 };
 
+export type ColorPickerColor =
+  | Exclude<keyof oc, "indigo" | "lime">
+  | "transparent"
+  | "bronze"
+  | string; //ymjr
 export type ColorTuple = readonly [string, string, string, string, string];
+export type ColorPalette = {
+  //ymjr
+  transparent: "transparent";
+  black: string;
+  white: string;
+  // Allow dynamic keys to return ColorTuple or string
+  [key: string]: ColorTuple | string;
+};
 
 // used general type instead of specific type (ColorPalette) to support custom colors
 export type ColorPaletteCustom = { [key: string]: ColorTuple | string };
@@ -189,32 +293,98 @@ export const DEFAULT_CHART_COLOR_INDEX = 4;
 
 export const DEFAULT_ELEMENT_STROKE_COLOR_INDEX = 4;
 export const DEFAULT_ELEMENT_BACKGROUND_COLOR_INDEX = 1;
+export const ELEMENTS_PALETTE_SHADE_INDEXES = [0, 2, 4, 6, 8] as const;
+export const CANVAS_PALETTE_SHADE_INDEXES = [0, 1, 2, 3, 4] as const;
 
-export const COLOR_PALETTE = {
+export const getSpecificColorShades = (
+  color: Exclude<
+    ColorPickerColor,
+    "transparent" | "white" | "black" | "bronze"
+  >,
+  indexArr: Readonly<ColorShadesIndexes>,
+) => {
+  // @ts-ignore
+  return indexArr.map((index) => oc[color][index]) as any as ColorTuple;
+};
+
+export const STATIC_PALETTE = {
+  //ymjr
   transparent: "transparent",
   black: "#1e1e1e",
   white: "#ffffff",
-  // open-color from https://github.com/yeun/open-color/blob/master/open-color.js
-  // corresponds to indexes [0,2,4,6,8] (weights: 50, 200, 400, 600, 800)
-  gray: ["#f8f9fa", "#e9ecef", "#ced4da", "#868e96", "#343a40"],
-  red: ["#fff5f5", "#ffc9c9", "#ff8787", "#fa5252", "#e03131"],
-  pink: ["#fff0f6", "#fcc2d7", "#f783ac", "#e64980", "#c2255c"],
-  grape: ["#f8f0fc", "#eebefa", "#da77f2", "#be4bdb", "#9c36b5"],
-  violet: ["#f3f0ff", "#d0bfff", "#9775fa", "#7950f2", "#6741d9"],
-  blue: ["#e7f5ff", "#a5d8ff", "#4dabf7", "#228be6", "#1971c2"],
-  cyan: ["#e3fafc", "#99e9f2", "#3bc9db", "#15aabf", "#0c8599"],
-  teal: ["#e6fcf5", "#96f2d7", "#38d9a9", "#12b886", "#099268"],
-  green: ["#ebfbee", "#b2f2bb", "#69db7c", "#40c057", "#2f9e44"],
-  yellow: ["#fff9db", "#ffec99", "#ffd43b", "#fab005", "#f08c00"],
-  orange: ["#fff4e6", "#ffd8a8", "#ffa94d", "#fd7e14", "#e8590c"],
-  // radix bronze shades [3,5,7,9,11]
+  // open-colors
+  gray: getSpecificColorShades("gray", ELEMENTS_PALETTE_SHADE_INDEXES),
+  red: getSpecificColorShades("red", ELEMENTS_PALETTE_SHADE_INDEXES),
+  pink: getSpecificColorShades("pink", ELEMENTS_PALETTE_SHADE_INDEXES),
+  grape: getSpecificColorShades("grape", ELEMENTS_PALETTE_SHADE_INDEXES),
+  violet: getSpecificColorShades("violet", ELEMENTS_PALETTE_SHADE_INDEXES),
+  blue: getSpecificColorShades("blue", ELEMENTS_PALETTE_SHADE_INDEXES),
+  cyan: getSpecificColorShades("cyan", ELEMENTS_PALETTE_SHADE_INDEXES),
+  teal: getSpecificColorShades("teal", ELEMENTS_PALETTE_SHADE_INDEXES),
+  green: getSpecificColorShades("green", ELEMENTS_PALETTE_SHADE_INDEXES),
+  yellow: getSpecificColorShades("yellow", ELEMENTS_PALETTE_SHADE_INDEXES),
+  orange: getSpecificColorShades("orange", ELEMENTS_PALETTE_SHADE_INDEXES),
+  // radix bronze shades 3,5,7,9,11
   bronze: ["#f8f1ee", "#eaddd7", "#d2bab0", "#a18072", "#846358"],
 } as const;
 
-export type ColorPalette = typeof COLOR_PALETTE;
-export type ColorPickerColor = keyof typeof COLOR_PALETTE;
+//ymjr
+export const COLOR_PALETTE = new Proxy(STATIC_PALETTE as ColorPalette, {
+  // Intercept property read: COLOR_PALETTE.myColor
+  get(target, prop, receiver) {
+    // Prioritize static colors
+    if (Reflect.has(target, prop)) {
+      return Reflect.get(target, prop, receiver);
+    }
+    if (typeof prop !== "string") {
+      return undefined;
+    }
 
-const COMMON_ELEMENT_SHADES = pick(COLOR_PALETTE, [
+    // ymjr: Return __group__ and __spacer__ identifiers as-is so DOM receives feature marker
+    if (prop.startsWith("__group__") || prop.startsWith("__spacer__")) {
+      return prop;
+    }
+
+    const extraColors = getExtraColors();
+    const extra = extraColors.find((c) => c.name === prop);
+    if (extra && extra.value) {
+      if (extra.value === "transparent") {
+        return [
+          "transparent",
+          "transparent",
+          "transparent",
+          "transparent",
+          "transparent",
+        ];
+      }
+      return generateShades(extra.value);
+    }
+
+    return undefined;
+  },
+
+  ownKeys(target) {
+    const staticKeys = Reflect.ownKeys(target);
+    const dynamicKeys = getExtraColors().map((c) => c.name);
+    return Array.from(new Set([...staticKeys, ...dynamicKeys]));
+  },
+
+  getOwnPropertyDescriptor(target, prop) {
+    if (prop in target) {
+      return Object.getOwnPropertyDescriptor(target, prop);
+    }
+    return { configurable: true, enumerable: true, writable: false };
+  },
+});
+
+// =============================================================================
+// ymjr: Derived color palettes (dynamic proxy)
+// =============================================================================
+
+// In order for COMMON_ELEMENT_SHADES to reflect extraColors in real time,
+// instead of a static pick, proxy COLOR_PALETTE dynamically.
+// Constructs a dynamic object containing common colors + dynamic extraColors.
+const COMMON_KEYS = [
   "cyan",
   "blue",
   "violet",
@@ -225,8 +395,31 @@ const COMMON_ELEMENT_SHADES = pick(COLOR_PALETTE, [
   "yellow",
   "orange",
   "red",
-]);
+];
 
+// ymjr: Create a Proxy dynamically retrieving common colors + extra colors
+const getDynamicCommonShades = () => {
+  return new Proxy(
+    {},
+    {
+      get(_, prop: string) {
+        return COLOR_PALETTE[prop as keyof typeof COLOR_PALETTE];
+      },
+      ownKeys() {
+        const extraKeys = getExtraColors().map((c) => c.name);
+        return [...COMMON_KEYS, ...extraKeys];
+      },
+      getOwnPropertyDescriptor(_, prop) {
+        return { configurable: true, enumerable: true, writable: false };
+      },
+    },
+  );
+};
+
+const COMMON_ELEMENT_SHADES = getDynamicCommonShades();
+//ymjr
+
+// -----------------------------------------------------------------------------
 // quick picks defaults
 // -----------------------------------------------------------------------------
 
@@ -293,32 +486,50 @@ export const DEFAULT_CANVAS_BACKGROUND_PICKS = [
   "#fdf8f6",
 ] as ColorTuple;
 
+// -----------------------------------------------------------------------------
 // palette defaults
 // -----------------------------------------------------------------------------
+//ymjr
+const createDynamicPalette = (base: Record<string, any>) => {
+  return new Proxy(base, {
+    get(target, prop: string) {
+      if (prop in target) return target[prop];
+      // If not in base, look in COMMON_ELEMENT_SHADES (dynamic list)
+      return (COMMON_ELEMENT_SHADES as any)[prop];
+    },
+    ownKeys(target) {
+      // Order here determines display order in color picker panel
+      return [
+        ...Reflect.ownKeys(target),
+        ...Reflect.ownKeys(COMMON_ELEMENT_SHADES),
+      ];
+    },
+    getOwnPropertyDescriptor(target, prop) {
+      return { configurable: true, enumerable: true, writable: false };
+    },
+  });
+};
 
-export const DEFAULT_ELEMENT_STROKE_COLOR_PALETTE = {
+export const DEFAULT_ELEMENT_STROKE_COLOR_PALETTE = createDynamicPalette({
   // 1st row
   transparent: COLOR_PALETTE.transparent,
   white: COLOR_PALETTE.white,
   gray: COLOR_PALETTE.gray,
   black: COLOR_PALETTE.black,
   bronze: COLOR_PALETTE.bronze,
-  // rest
-  ...COMMON_ELEMENT_SHADES,
-} as const;
+}) as any;
 
 // ORDER matters for positioning in pallete (5x3 grid)s
-export const DEFAULT_ELEMENT_BACKGROUND_COLOR_PALETTE = {
+export const DEFAULT_ELEMENT_BACKGROUND_COLOR_PALETTE = createDynamicPalette({
   transparent: COLOR_PALETTE.transparent,
   white: COLOR_PALETTE.white,
   gray: COLOR_PALETTE.gray,
   black: COLOR_PALETTE.black,
   bronze: COLOR_PALETTE.bronze,
+}) as any;
 
-  ...COMMON_ELEMENT_SHADES,
-} as const;
-
-// color palette helpers
+// -----------------------------------------------------------------------------
+// helpers
 // -----------------------------------------------------------------------------
 
 // !!!MUST BE WITHOUT GRAY, TRANSPARENT AND BLACK!!!
@@ -339,26 +550,8 @@ export const getAllColorsSpecificShade = (index: 0 | 1 | 2 | 3 | 4) => [
 ];
 
 // -----------------------------------------------------------------------------
-// other helpers
+// other helpers (From Upstream/Conflicting file - Needed for Utils)
 // -----------------------------------------------------------------------------
-
-export const rgbToHex = (r: number, g: number, b: number, a?: number) => {
-  // (1 << 24) adds 0x1000000 to ensure the hex string is always 7 chars,
-  // then slice(1) removes the leading "1" to get exactly 6 hex digits
-  // e.g. rgb(0,0,0) -> 0x1000000 -> "1000000" -> "000000"
-  const hex6 = `#${((1 << 24) + (r << 16) + (g << 8) + b)
-    .toString(16)
-    .slice(1)}`;
-  if (a !== undefined && a < 1) {
-    // convert alpha from 0-1 float to 0-255 int, then to 2-digit hex
-    // e.g. 0.5 -> 128 -> "80"
-    const alphaHex = Math.round(a * 255)
-      .toString(16)
-      .padStart(2, "0");
-    return `${hex6}${alphaHex}`;
-  }
-  return hex6;
-};
 
 /**
  * @returns the color with its alpha replaced by `alpha` (as #RRGGBBAA), or the
@@ -375,7 +568,7 @@ export const setColorAlpha = (color: string, alpha: number): string => {
 
 /**
  * @returns #RRGGBB or #RRGGBBAA based on color containing non-opaque alpha,
- *  null if not valid color
+ * null if not valid color
  */
 export const colorToHex = (color: string): string | null => {
   const tc = tinycolor(color);
@@ -406,7 +599,6 @@ export const isOpaqueColor = (color: string) => {
 // -----------------------------------------------------------------------------
 
 export const COLOR_OUTLINE_CONTRAST_THRESHOLD = 240;
-
 const calculateContrast = (r: number, g: number, b: number): number => {
   const yiq = (r * 299 + g * 587 + b * 114) / 1000;
   return yiq;

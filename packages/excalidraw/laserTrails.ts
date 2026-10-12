@@ -21,6 +21,10 @@ const getDecayLength = () =>
   DECAY_LENGTH; //zsviczian
 const getColor = () =>
   (window as any).ExcalidrawAutomate?.LASERPOINTER?.COLOR ?? "red"; //zsviczian
+const getStrokeColor = () =>
+  (window as any).ExcalidrawAutomate?.LASERPOINTER?.STROKE_COLOR ?? "red"; //ymjr
+const getFillColor = () =>
+  (window as any).ExcalidrawAutomate?.LASERPOINTER?.FILL_COLOR ?? "red"; //ymjr
 
 export class LaserTrails implements Trail {
   public localTrail: AnimatedTrail;
@@ -30,7 +34,9 @@ export class LaserTrails implements Trail {
   constructor(private app: App) {
     this.localTrail = new AnimatedTrail(app, {
       ...this.getTrailOptions(),
-      fill: () => getColor(), //zsviczian
+      // fill: () => getColor(), //zsviczian
+      fill: () => getFillColor(), //ymjr
+      stroke: () => getStrokeColor(), //ymjr
     });
   }
 

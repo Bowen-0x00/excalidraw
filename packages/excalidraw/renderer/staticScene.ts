@@ -3,6 +3,7 @@ import {
   COLOR_WHITE,
   FRAME_STYLE,
   THEME,
+  MIME_TYPES, //ymjr
   throttleRAF,
 } from "@excalidraw/common";
 import { isElementLink } from "@excalidraw/element";
@@ -52,7 +53,8 @@ import type {
   StaticCanvasRenderConfig,
   StaticSceneRenderConfig,
 } from "../scene/types";
-import type { StaticCanvasAppState, Zoom } from "../types";
+import type { StaticCanvasAppState, Zoom, NormalizedZoomValue } from "../types"; //ymjr
+import rough from "roughjs/bin/rough"; //ymjr
 
 /*const GridLineColor = {
   [THEME.LIGHT]: {
@@ -78,7 +80,10 @@ const strokeGrid = (
   width: number,
   height: number,
   gridLineColor: { Bold: string; Regular: string }, //zsviczian
-  gridDirection: { horizontal: boolean; vertical: boolean } = { horizontal: true, vertical: true }, //zsviczian
+  gridDirection: { horizontal: boolean; vertical: boolean } = {
+    horizontal: true,
+    vertical: true,
+  }, //zsviczian
   scale: number,
 ) => {
   const bold = //zsviczian
@@ -127,7 +132,8 @@ const strokeGrid = (
   context.save();
 
   // vertical lines
-  if (gridDirection.vertical) { //zsviczian
+  if (gridDirection.vertical) {
+    //zsviczian
     for (let x = offsetX; x < offsetX + width + gridSize * 2; x += gridSize) {
       const isBold =
         gridStep > 1 && Math.round(x - scrollX) % (gridStep * gridSize) === 0;
@@ -149,7 +155,8 @@ const strokeGrid = (
     }
   }
 
-  if(gridDirection.horizontal) { //zsviczian
+  if (gridDirection.horizontal) {
+    //zsviczian
     for (let y = offsetY; y < offsetY + height + gridSize * 2; y += gridSize) {
       const isBold =
         gridStep > 1 && Math.round(y - scrollY) % (gridStep * gridSize) === 0;
@@ -198,7 +205,7 @@ export const frameClip = (
   );
 };
 
-type LinkIconCanvas = HTMLCanvasElement & { zoom: number, linkOpacity: number }; //zsviczian (linkOpacity)
+type LinkIconCanvas = HTMLCanvasElement & { zoom: number; linkOpacity: number }; //zsviczian (linkOpacity)
 
 const linkIconCanvasCache: {
   regularLink: LinkIconCanvas | null;
@@ -215,7 +222,11 @@ const renderLinkIcon = (
   elementsMap: ElementsMap,
   renderState: ElementRenderState,
 ) => {
-  if ((element.link || element.hasTextLink) && !appState.selectedElementIds[element.id]) { //zsviczian
+  if (
+    (element.link || element.hasTextLink) &&
+    !appState.selectedElementIds[element.id]
+  ) {
+    //zsviczian
     const [x1, y1, x2, y2] = getElementAbsoluteCoords(element, elementsMap);
     const [x, y, width, height] = getLinkHandleFromCoords(
       [
@@ -233,17 +244,18 @@ const renderLinkIcon = (
     context.translate(appState.scrollX + centerX, appState.scrollY + centerY);
     context.rotate(element.angle);
 
-    const canvasKey = !! element.link && isElementLink(element.link) //zsviczian
-      ? "elementLink"
-      : "regularLink";
+    const canvasKey =
+      !!element.link && isElementLink(element.link) //zsviczian
+        ? "elementLink"
+        : "regularLink";
 
     let linkCanvas = linkIconCanvasCache[canvasKey];
 
     if (
       !linkCanvas ||
-      linkCanvas.zoom !== appState.zoom.value || 
+      linkCanvas.zoom !== appState.zoom.value ||
       linkCanvas.linkOpacity !== appState.linkOpacity //zsviczian
-  ) {
+    ) {
       linkCanvas = Object.assign(document.createElement("canvas"), {
         zoom: appState.zoom.value,
         linkOpacity: appState.linkOpacity, //zsviczian
@@ -286,6 +298,108 @@ const renderLinkIcon = (
     context.restore();
   }
 };
+
+//ymjr++>>>
+let detailCanvasCacheMap = new Map();
+const DETAIL_IMG_SHOW = document.createElement("img");
+DETAIL_IMG_SHOW.src = `data:${MIME_TYPES.svg}, ${encodeURIComponent(
+  `<svg width="800px" height="800px" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+  <g fill="#2e3436">
+      <path d="m 2 8 c -0.550781 0 -1 0.449219 -1 1 s 0.449219 1 1 1 h 2.585938 l -3.292969 3.292969 c -0.390625 0.390625 -0.390625 1.023437 0 1.414062 s 1.023437 0.390625 1.414062 0 l 3.292969 -3.292969 v 2.585938 c 0 0.550781 0.449219 1 1 1 s 1 -0.449219 1 -1 v -6 z m 0 0"/>
+      <path d="m 14 8 c 0.550781 0 1 -0.449219 1 -1 s -0.449219 -1 -1 -1 h -2.585938 l 3.292969 -3.292969 c 0.390625 -0.390625 0.390625 -1.023437 0 -1.414062 s -1.023437 -0.390625 -1.414062 0 l -3.292969 3.292969 v -2.585938 c 0 -0.550781 -0.449219 -1 -1 -1 s -1 0.449219 -1 1 v 6 z m 0 0"/>
+  </g>
+</svg>`,
+)}`;
+const DETAIL_IMG_HIDE = document.createElement("img");
+DETAIL_IMG_HIDE.src = `data:${MIME_TYPES.svg}, ${encodeURIComponent(
+  `<svg width="800px" height="800px" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+  <g fill="#2e3436">
+      <path d="m 1 9 c -0.550781 0 -1 0.449219 -1 1 v 6 h 6 c 0.550781 0 1 -0.449219 1 -1 s -0.449219 -1 -1 -1 h -2.585938 l 3.292969 -3.292969 c 0.390625 -0.390625 0.390625 -1.023437 0 -1.414062 c -0.1875 -0.1875 -0.441406 -0.292969 -0.707031 -0.292969 s -0.519531 0.105469 -0.707031 0.292969 l -3.292969 3.292969 v -2.585938 c 0 -0.550781 -0.449219 -1 -1 -1 z m 0 0"/>
+      <path d="m 15 7 c 0.550781 0 1 -0.449219 1 -1 v -6 h -6 c -0.550781 0 -1 0.449219 -1 1 s 0.449219 1 1 1 h 2.585938 l -3.292969 3.292969 c -0.390625 0.390625 -0.390625 1.023437 0 1.414062 c 0.1875 0.1875 0.441406 0.292969 0.707031 0.292969 s 0.519531 -0.105469 0.707031 -0.292969 l 3.292969 -3.292969 v 2.585938 c 0 0.550781 0.449219 1 1 1 z m 0 0"/>
+  </g>
+</svg>`,
+)}`;
+const DETAIL_IMGS: { [key: string]: HTMLImageElement } = {
+  hide: DETAIL_IMG_HIDE,
+  show: DETAIL_IMG_SHOW,
+};
+
+const renderDetailIcon = (
+  element: NonDeletedExcalidrawElement,
+  context: CanvasRenderingContext2D,
+  appState: StaticCanvasAppState,
+  elementsMap: ElementsMap,
+) => {
+  const appStateBackup = appState;
+  if (element?.customData?.detail) {
+    const [x1, y1, x2, y2] = getElementAbsoluteCoords(element, elementsMap);
+    const [x, y, width, height] = getLinkHandleFromCoords(
+      [x1, y1, x2, y2],
+      element.angle,
+      appState,
+      20,
+      16,
+      -16,
+    );
+
+    const centerX = x + width / 2;
+    const centerY = y + height / 2;
+    context.save();
+    if (element?.customData?.fixed) {
+      context.scale(
+        1 / appStateBackup.zoom.value,
+        1 / appStateBackup.zoom.value,
+      );
+    }
+    context.translate(appState.scrollX + centerX, appState.scrollY + centerY);
+    context.rotate(element.angle);
+    const key = element?.customData?.detail.status || "show";
+    let detailCanvasCache = detailCanvasCacheMap.get(key);
+    if (!detailCanvasCache || detailCanvasCache.zoom !== appState.zoom.value) {
+      detailCanvasCache = document.createElement("canvas");
+      detailCanvasCache.zoom = appState.zoom.value;
+      detailCanvasCache.width =
+        width * window.devicePixelRatio * appState.zoom.value;
+      detailCanvasCache.height =
+        height * window.devicePixelRatio * appState.zoom.value;
+      const detailCanvasCacheContext = detailCanvasCache.getContext("2d")!;
+      detailCanvasCacheContext.scale(
+        window.devicePixelRatio * appState.zoom.value,
+        window.devicePixelRatio * appState.zoom.value,
+      );
+
+      detailCanvasCacheContext.drawImage(
+        DETAIL_IMGS[element?.customData?.detail.status || "show"],
+        0,
+        0,
+        width,
+        height,
+      );
+      detailCanvasCacheContext.restore();
+      context.globalAlpha = appState.linkOpacity;
+      context.drawImage(
+        detailCanvasCache,
+        x - centerX,
+        y - centerY,
+        width,
+        height,
+      );
+      detailCanvasCacheMap.set(key, detailCanvasCache);
+    } else {
+      context.globalAlpha = appState.linkOpacity;
+      context.drawImage(
+        detailCanvasCache,
+        x - centerX,
+        y - centerY,
+        width,
+        height,
+      );
+    }
+    context.restore();
+  }
+};
+//ymjr++<<<
+
 const _renderStaticScene = ({
   canvas,
   rc,
@@ -296,6 +410,7 @@ const _renderStaticScene = ({
   appState: unsnappedAppState,
   renderConfig,
 }: StaticSceneRenderConfig) => {
+  //  /*ymjr*/(window as any)?._renderStaticSceneHook?.(canvas, rc, visibleElements, scale, appState, renderConfig);/*ymjr*/
   if (canvas === null) {
     return;
   }
@@ -461,16 +576,27 @@ const _renderStaticScene = ({
 
         if (!isExporting && renderConfig.renderLinks !== false) {
           renderLinkIcon(element, context, appState, elementsMap, renderState);
+          // renderDetailIcon(element, context, appState, elementsMap);//ymjr
+          // renderContainerIcon(element, context, appState, elementsMap); //ymjr
+          const core = (window as any).EA_Core;
+          if (core) {
+            core.dispatchSync("renderCustomIcons", {
+              element,
+              context,
+              appState,
+              elementsMap,
+            });
+          }
         }
       } catch (error: any) {
-        console.error(
-          error,
-          element.id,
-          element.x,
-          element.y,
-          element.width,
-          element.height,
-        );
+        // console.error(error);
+        if (
+          error instanceof DOMException &&
+          error.name === "InvalidStateError"
+        ) {
+          //ymjr
+          context.restore();
+        }
       }
     });
 
@@ -520,10 +646,23 @@ const _renderStaticScene = ({
         }
         if (!isExporting && renderConfig.renderLinks !== false) {
           renderLinkIcon(element, context, appState, elementsMap, renderState);
+          // renderDetailIcon(element, context, appState, elementsMap);//ymjr
+          // renderContainerIcon(element, context, appState, elementsMap); //ymjr
+          const core = (window as any).EA_Core;
+          core?.dispatchSync("renderCustomIcons", {
+            element,
+            context,
+            appState,
+            elementsMap,
+          });
         }
         context.restore();
       } catch (error: any) {
-        console.error(error);
+        // console.error(error);
+        if (error instanceof DOMException && error.code == 11) {
+          //ymjr
+          context.restore();
+        }
       }
     });
 
@@ -543,6 +682,24 @@ const _renderStaticScene = ({
       console.error(error);
     }
   });
+
+  const core = (window as any).EA_Core;
+  if (core) {
+    core.dispatchSync("renderStaticScene", {
+      canvas,
+      rc,
+      elementsMap,
+      allElementsMap,
+      visibleElements,
+      scale,
+      appState,
+      renderConfig,
+      context, // Expose 2D canvas context to script
+      utils: {
+        getElementAbsoluteCoords, // Expose coordinate calculation utility
+      },
+    });
+  }
 };
 
 /** throttled to animation framerate */
@@ -565,4 +722,10 @@ export const renderStaticScene = (
   }
 
   _renderStaticScene(renderConfig);
+  // /*ymjr*/(window as any)?.renderStaticSceneHook?.(renderConfig, throttle, _renderStaticScene, rough);/*ymjr*/
+  const core = (window as any).EA_Core;
+  if (core) {
+    const context = { renderConfig, throttle, _renderStaticScene, rough };
+    core.dispatchSync("renderStaticScene", context);
+  }
 };

@@ -62,7 +62,7 @@ export interface FontDescriptor {
 interface FontPickerListProps {
   selectedFontFamily: FontFamilyValues | null;
   hoveredFontFamily: FontFamilyValues | null;
-  onSelect: (value: number) => void;
+  onSelect: (value: number | string) => void;
   onHover: (value: number) => void;
   onLeave: () => void;
   onOpen: () => void;
@@ -251,7 +251,7 @@ export const FontPickerList = React.memo(
           inputRef,
           hoveredFont,
           filteredFonts,
-          onSelect: wrappedOnSelect,
+          onSelect,
           onHover,
           onClose,
         });
@@ -261,7 +261,7 @@ export const FontPickerList = React.memo(
           event.stopPropagation();
         }
       },
-      [hoveredFont, filteredFonts, wrappedOnSelect, onHover, onClose],
+      [hoveredFont, filteredFonts, onSelect, onHover, onClose],
     );
 
     useEffect(() => {
@@ -316,7 +316,8 @@ export const FontPickerList = React.memo(
           // allow to tab between search and selected font
           tabIndex={isSelected ? 0 : -1}
           onClick={(e) => {
-            wrappedOnSelect(Number(e.currentTarget.value));
+            e.preventDefault(); //ymjr
+            wrappedOnSelect(font.value); //ymjr
           }}
           onMouseMove={() => {
             if (hoveredFont?.value !== font.value) {

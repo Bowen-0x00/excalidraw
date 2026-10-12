@@ -106,6 +106,7 @@ export const actionFinalize = register<FormData>({
 
         const draggedPoints: PointsPositionUpdates =
           selectedPointsIndices.reduce((map, index) => {
+            // ymjr
             map.set(index, {
               point: angleLocked
                 ? element.points[index]

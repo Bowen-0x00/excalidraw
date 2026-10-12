@@ -95,7 +95,7 @@ export class AppWheel {
     const { allowWheelZoom } = this.app.state;
     const hasZoomModifier = //zsviczian
       ((event.metaKey || event.ctrlKey) && !allowWheelZoom) ||
-      (!(event.metaKey || event.ctrlKey) && allowWheelZoom)
+      (!(event.metaKey || event.ctrlKey) && allowWheelZoom);
     const shouldZoom =
       // a horizontal-only wheel (tilt wheel, sideways two-finger scroll)
       // has nothing to zoom by; it follows the pan mappings below instead
@@ -105,7 +105,7 @@ export class AppWheel {
           (hasZoomModifier ||
             resolveInputDevice(this.app.state.inputDevice) === "mouse")));
     if (shouldZoom) {
-      this.zoomBy(deltaY);
+      this.zoomBy(event);
       return;
     }
 
@@ -138,7 +138,8 @@ export class AppWheel {
   };
 
   /** zooms around the pointer by a wheel delta (positive = zoom out) */
-  private zoomBy = (deltaY: number) => {
+  private zoomBy = (event: WheelEvent) => { //ymjr
+    const { deltaY } = event;
     const { viewport } = this.app;
 
     const sign = Math.sign(deltaY);
@@ -152,6 +153,11 @@ export class AppWheel {
     // where the pointer is now — the updater below runs when React flushes,
     // by which time the pointer may have moved on (`lastPosition` is live)
     const { x: viewportX, y: viewportY } = viewport.lastPosition;
+
+    let hookState: Pick< //ymjr
+      App["state"],
+      "scrollX" | "scrollY" | "zoom" | "shouldCacheIgnoreZoom"
+    > = this.app.state;
 
     const didTranslate = viewport.translate(
       // computed from the state the zoom applies to, not `app.state`: wheel
@@ -176,13 +182,15 @@ export class AppWheel {
           return null;
         }
 
-        return {
+        const update = {
           ...getViewportForZoomWithScrollConstraints(
             { viewportX, viewportY, nextZoom },
             state,
           ),
           shouldCacheIgnoreZoom: true,
         };
+        hookState = update;
+        return update;
       },
       {
         zoomPreConstrained: true,
@@ -191,6 +199,17 @@ export class AppWheel {
     );
     if (didTranslate) {
       this.app.resetShouldCacheIgnoreZoomDebounced();
+      //ymjr
+      const core = (window as any).EA_Core;
+      if (core) {
+        core.dispatchSync("handleWheelZoom", {
+          event,
+          zoom: hookState.zoom,
+          App: this.app,
+          state: hookState,
+          lastViewportPosition: { x: viewportX, y: viewportY },
+        });
+      }
     }
   };
 }

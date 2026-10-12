@@ -1168,7 +1168,6 @@ export const FillSolidIcon = createIcon(
   { ...modifiedTablerIconProps, fill: "var(--icon-fill-color)" },
 );
 
-
 export const StrokeWidthExtraThinIcon = createIcon(
   //zsviczian
   <>
@@ -1461,7 +1460,7 @@ export const ArrowheadTriangleOutlineIcon = React.memo(
   ({ flip = false }: { flip?: boolean }) =>
     createIcon(
       <g
-        stroke="var(--icon-fill-color)"//zsviczian
+        stroke="var(--icon-fill-color)" //zsviczian
         fill="none"
         transform={flip ? "translate(40, 0) scale(-1, 1)" : ""}
         strokeWidth={2}
@@ -1667,6 +1666,94 @@ export const FontSizeExtraSmallIcon = createIcon(
   modifiedTablerIconProps,
 );
 
+//ymjr
+// ==========================================
+// Chevron arrowhead
+// ==========================================
+
+export const ArrowheadChevronIcon = React.memo(
+  ({ flip = false }: { flip?: boolean }) =>
+    createIcon(
+      <g
+        stroke="currentColor"
+        fill="none"
+        transform={flip ? "" : "translate(40, 0) scale(-1, 1)"}
+        strokeLinejoin="round"
+        strokeWidth={2}
+      >
+        {/* Shaft line: connects to indent point (x=14) */}
+        <path d="M34,10 H14" />
+        {/* Arrowhead: solid fill */}
+        <path
+          d="M18,4 L6,10 L18,16 L14,10 Z"
+          fill="currentColor"
+          stroke="none"
+        />
+      </g>,
+      { width: 40, height: 20 },
+    ),
+);
+
+export const ArrowheadChevronOutlineIcon = React.memo(
+  ({ flip = false }: { flip?: boolean }) =>
+    createIcon(
+      <g
+        stroke="currentColor"
+        fill="none"
+        transform={flip ? "" : "translate(40, 0) scale(-1, 1)"}
+        strokeLinejoin="round"
+        strokeWidth={2}
+      >
+        {/* Shaft line: connects to indent point (x=14) */}
+        <path d="M34,10 H14" />
+        {/* Arrowhead: outline */}
+        <path d="M18,4 L6,10 L18,16 L14,10 Z" />
+      </g>,
+      { width: 40, height: 20 },
+    ),
+);
+
+// ==========================================
+// Block arrowhead
+// ==========================================
+
+export const ArrowheadBlockArrowIcon = React.memo(
+  ({ flip = false }: { flip?: boolean }) =>
+    createIcon(
+      <g
+        transform={flip ? "" : "translate(40, 0) scale(-1, 1)"}
+        strokeLinejoin="round"
+      >
+        {/* Solid version: path initially points left, flipped right by default transform */}
+        <path
+          d="M 36,13 L 18,13 L 18,18 L 4,10 L 18,2 L 18,7 L 36,7 Z"
+          fill="currentColor"
+          stroke="none"
+        />
+      </g>,
+      { width: 40, height: 20 },
+    ),
+);
+
+export const ArrowheadBlockArrowOutlineIcon = React.memo(
+  ({ flip = false }: { flip?: boolean }) =>
+    createIcon(
+      <g
+        transform={flip ? "" : "translate(40, 0) scale(-1, 1)"}
+        strokeLinejoin="round"
+      >
+        {/* Outline version: path initially points left, flipped right by default transform */}
+        <path
+          d="M 36,13 L 18,13 L 18,18 L 4,10 L 18,2 L 18,7 L 36,7 Z"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2}
+        />
+      </g>,
+      { width: 40, height: 20 },
+    ),
+);
+//ymjr
 
 export const FontSizeSmallIcon = createIcon(
   <>
@@ -2505,9 +2592,18 @@ export const elbowArrowIcon = createIcon(
 
 // arrow-ramp-right-2 (heavily modified)
 export const roundArrowIcon = createIcon(
+  //ymjr
   <g>
+    <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+    {/* Original path */}
     <path d="M16,12L20,9L16,6" />
     <path d="M6 20c0 -6.075 4.925 -11 11 -11h3" />
+
+    {/* Solid circles indicating vertices */}
+    {/* Start point */}
+    <circle cx="6" cy="20" r="2" fill="currentColor" stroke="none" />
+    {/* Turn vertex point */}
+    <circle cx="11" cy="10" r="2" fill="currentColor" stroke="none" />
   </g>,
   tablerIconProps,
 );
@@ -2524,6 +2620,15 @@ export const collapseUpIcon = createIcon(
   <g>
     <path stroke="none" d="M0 0h24v24H0z" fill="none" />
     <path d="M6 15l6 -6l6 6" />
+  </g>,
+  tablerIconProps,
+);
+
+// ymjr
+export const curveArrowIcon = createIcon(
+  <g>
+    <path d="M16,12L20,9L16,6" />
+    <path d="M6 20c0 -6.075 4.925 -11 11 -11h3" />
   </g>,
   tablerIconProps,
 );
@@ -2610,6 +2715,238 @@ export const InsertAnyFileIcon = createIcon(
     strokeLinejoin: "round",
     strokeWidth: 2,
   },
+);
+
+//ymjr
+export const BezierCurveIcon = createIcon(
+  <>
+    {/* Bezier: Q command with distinct control point */}
+    <path
+      d="M3 17 L8 11 Q12 7 16 11 L21 14"
+      fill="none"
+      stroke="var(--icon-fill-color)"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    {/* Circle representing control point */}
+    <circle cx="12" cy="7" r="0.9" fill="var(--icon-fill-color)" />
+  </>,
+  modifiedTablerIconProps,
+);
+//ymjr
+
+//ymjr
+const linePath = "M 6 12 L 18 12";
+
+export const NoneIcon = createIcon(
+  <svg
+    viewBox="0 0 24 24"
+    width="24"
+    height="24"
+    stroke="currentColor"
+    strokeWidth="2"
+    fill="none"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <circle cx="12" cy="12" r="10"></circle>
+    <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+  </svg>,
+);
+
+export const ButtCapIcon = createIcon(
+  <svg viewBox="0 0 24 24" width="24" height="24" fill="none">
+    <path
+      d={linePath}
+      stroke="currentColor"
+      strokeWidth="8"
+      strokeLinecap="butt"
+    />
+  </svg>,
+  modifiedTablerIconProps,
+);
+
+export const RoundCapIcon = createIcon(
+  <svg viewBox="0 0 24 24" width="24" height="24" fill="none">
+    <path
+      d={linePath}
+      stroke="currentColor"
+      strokeWidth="8"
+      strokeLinecap="round"
+    />
+  </svg>,
+  modifiedTablerIconProps,
+);
+
+export const SquareCapIcon = createIcon(
+  <svg viewBox="0 0 24 24" width="24" height="24" fill="none">
+    <path
+      d={linePath}
+      stroke="currentColor"
+      strokeWidth="8"
+      strokeLinecap="square"
+    />
+  </svg>,
+  modifiedTablerIconProps,
+);
+
+const cornerPath = "M 6 20 L 6 6 L 20 6";
+
+export const MiterJoinIcon = createIcon(
+  <svg viewBox="0 0 24 24" width="24" height="24" fill="none">
+    <path
+      d={cornerPath}
+      stroke="currentColor"
+      strokeWidth="8"
+      strokeLinejoin="miter"
+      strokeLinecap="butt"
+    />
+  </svg>,
+  modifiedTablerIconProps,
+);
+
+export const RoundJoinIcon = createIcon(
+  <svg viewBox="0 0 24 24" width="24" height="24" fill="none">
+    <path
+      d={cornerPath}
+      stroke="currentColor"
+      strokeWidth="8"
+      strokeLinejoin="round"
+      strokeLinecap="butt"
+    />
+  </svg>,
+  modifiedTablerIconProps,
+);
+
+export const BevelJoinIcon = createIcon(
+  <svg viewBox="0 0 24 24" width="24" height="24" fill="none">
+    <path
+      d={cornerPath}
+      stroke="currentColor"
+      strokeWidth="8"
+      strokeLinejoin="bevel"
+      strokeLinecap="butt"
+    />
+  </svg>,
+  modifiedTablerIconProps,
+);
+//ymjr
+
+//ymjr
+// 1. No snap (None)
+// Dashed frame with free floating unaligned inner square representing free movement.
+export const NoSnapIcon = createIcon(
+  <svg viewBox="0 0 24 24" fill="none">
+    {/* Dashed reference box */}
+    <rect
+      x="4"
+      y="4"
+      width="16"
+      height="16"
+      rx="1"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeDasharray="4 4"
+      opacity="0.4"
+    />
+    {/* Free-floating unaligned element */}
+    <rect
+      x="10"
+      y="10"
+      width="8"
+      height="8"
+      rx="1"
+      stroke="currentColor"
+      strokeWidth="2"
+    />
+  </svg>,
+  modifiedTablerIconProps,
+);
+
+// 2. Point snap (Points)
+// Rectangular outline with solid circles emphasizing attraction snap points.
+export const SnapPointIcon = createIcon(
+  <svg viewBox="0 0 24 24" fill="none">
+    {/* Translucent frame */}
+    <rect
+      x="4"
+      y="4"
+      width="16"
+      height="16"
+      rx="1"
+      stroke="currentColor"
+      strokeWidth="2"
+      opacity="0.4"
+    />
+    {/* Emphasize snap points (edge midpoints and center) */}
+    <circle cx="12" cy="4" r="2.5" fill="currentColor" />
+    <circle cx="12" cy="20" r="2.5" fill="currentColor" />
+    <circle cx="4" cy="12" r="2.5" fill="currentColor" />
+    <circle cx="20" cy="12" r="2.5" fill="currentColor" />
+    <circle cx="12" cy="12" r="2.5" fill="currentColor" />
+  </svg>,
+  modifiedTablerIconProps,
+);
+
+// 3. Edge snap (Edge)
+// Bold right edge representing track with arrow indicating snap attraction.
+export const SnapEdgeIcon = createIcon(
+  <svg viewBox="0 0 24 24" fill="none">
+    {/* Translucent frame */}
+    <rect
+      x="5"
+      y="5"
+      width="14"
+      height="14"
+      rx="1"
+      stroke="currentColor"
+      strokeWidth="2"
+      opacity="0.4"
+    />
+    {/* Bold right edge representing line snap zone */}
+    <line
+      x1="19"
+      y1="5"
+      x2="19"
+      y2="19"
+      stroke="currentColor"
+      strokeWidth="4"
+      strokeLinecap="round"
+    />
+    {/* Arrow pointing toward snap edge */}
+    <path
+      d="M10 12h6"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+    />
+    <path
+      d="M13 9l3 3l-3 3"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>,
+  modifiedTablerIconProps,
+);
+
+export const ArcCurveIcon = createIcon(
+  <>
+    {/* Arc: A command smooth arc */}
+    <path
+      d="M3 17 L8 13 A4 4 0 0 1 16 13 L21 14"
+      fill="none"
+      stroke="var(--icon-fill-color)"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    {/* Circle highlighting arc apex */}
+    <circle cx="12" cy="13" r="0.9" fill="var(--icon-fill-color)" />
+  </>,
+  modifiedTablerIconProps,
 );
 
 //zsviczian

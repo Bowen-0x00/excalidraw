@@ -84,6 +84,18 @@ export const dragSelectedElements = (
     }
   }
 
+  // if ((window as any)?.dragSelectedElementsHook?.(selectedElements, elementsToUpdate, scene)) {/*ymjr*/
+  //   return;
+  // }
+  const core = (window as any).EA_Core;
+  if (core) {
+    const isIntercepted = core.dispatchSync("dragSelectedElements", {
+      selectedElements,
+      elementsToUpdate,
+      scene,
+    });
+    if (isIntercepted) return;
+  }
   const origElements: ExcalidrawElement[] = [];
 
   for (const element of elementsToUpdate) {

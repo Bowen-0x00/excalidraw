@@ -88,13 +88,24 @@ export const getElementsWithinSelection = <T extends ExcalidrawElement>(
     selectionY2,
   ] as Bounds;
 
-  return elementsOverlappingBBox({
+  const baseSelectedElements = elementsOverlappingBBox({
     elements,
     bounds: selectionBounds,
     elementsMap,
     type: boxSelectionMode,
     shouldIgnoreElementFromSelection,
     excludeElementsInFrames,
+  });
+
+  return baseSelectedElements.filter((element) => {
+    //ymjr
+    const core = (window as any).EA_Core;
+    if (core) {
+      const context = { element, elementsMap, shouldSelect: true };
+      core.dispatchSync("shouldSelectElement", context, false);
+      return context.shouldSelect;
+    }
+    return true;
   });
 };
 

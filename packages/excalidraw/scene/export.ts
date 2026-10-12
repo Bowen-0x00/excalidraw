@@ -397,7 +397,12 @@ export const exportToSvg = async (
         // elements which don't contain the temp frame labels.
         // But it also requires that the exportToSvg is being supplied with
         // only the elements that we're exporting, and no extra.
-        payload: serializeAsJSON(filteredElements, appState, files || {}, "local"), //zsviczian
+        payload: serializeAsJSON(
+          filteredElements,
+          appState,
+          files || {},
+          "local",
+        ), //zsviczian
       });
     } catch (error: any) {
       console.error(error);
@@ -490,7 +495,8 @@ export const exportToSvg = async (
 
   const renderEmbeddables = opts?.renderEmbeddables ?? false;
 
-  renderSceneToSvg(
+  await renderSceneToSvg(
+    //ymjr
     elementsForRender,
     toBrandedType<RenderableElementsMap>(arrayToMap(elementsForRender)),
     rsvg,

@@ -77,6 +77,7 @@ import type { ParsedDataTranferList } from "../clipboard";
 import type App from "../components/App";
 import type { AppState } from "../types";
 import { attachInlineLinkSuggester } from "../obsidianUtils";
+import { hasObsidianExcalidrawHost } from "../obsidianExcalidrawHost";
 
 const getTransform = (
   width: number,
@@ -350,6 +351,8 @@ export const textWysiwyg = ({
             const targetContainerHeight = computeContainerDimensionForBoundText(
               height,
               container.type,
+              container.customData?.legacyTextWrap, //ymjr
+              container, //ymjr
             );
 
             app.scene.mutateElement(container, {
@@ -367,6 +370,8 @@ export const textWysiwyg = ({
             const targetContainerHeight = computeContainerDimensionForBoundText(
               height,
               container.type,
+              container.customData?.legacyTextWrap, //ymjr
+              container, //ymjr
             );
             app.scene.mutateElement(container, {
               height: targetContainerHeight,
@@ -429,8 +434,8 @@ export const textWysiwyg = ({
           updatedTextElement.strokeColor === "transparent" //zsviczian
             ? "var(--excalidraw-caret-color)"
             : appState.theme === THEME.DARK
-              ? applyDarkModeFilter(updatedTextElement.strokeColor)
-              : updatedTextElement.strokeColor, //zsviczian Set caret color
+            ? applyDarkModeFilter(updatedTextElement.strokeColor)
+            : updatedTextElement.strokeColor, //zsviczian Set caret color
       });
       currentTextLayout = {
         angle: angle as Radians,
@@ -457,7 +462,9 @@ export const textWysiwyg = ({
   };
 
   const editable = ownerDocument.createElement("textarea");
-  attachInlineLinkSuggester(editable, undefined, excalidrawContainer); //zsviczian
+  if (hasObsidianExcalidrawHost()) {
+    attachInlineLinkSuggester(editable, undefined, excalidrawContainer);
+  }
 
   editable.dir = "auto";
   editable.tabIndex = 0;
@@ -647,7 +654,12 @@ export const textWysiwyg = ({
         const { selectionStart, selectionEnd, value } = editable;
         const nextText =
           value.slice(0, selectionStart) + text + value.slice(selectionEnd);
-        const wrappedText = wrapText(nextText, font, maxWidth);
+        const wrappedText = wrapText(
+          nextText,
+          font,
+          maxWidth,
+          element.customData?.indent, //ymjr
+        );
         const width = Math.min(getTextWidth(wrappedText, font), maxWidth);
         editable.style.width = `${Math.ceil(width)}px`; //zsviczian Obsidian app zoom !== 100% issue
       }
@@ -931,7 +943,13 @@ export const textWysiwyg = ({
       }
 
       // Otherwise, re-enable submit on blur and refocus the editor.
-      editable.onblur = handleSubmit;
+      editable.onblur = () => {
+        //ymjr
+        if (document.querySelector(".emoji-suggester:hover")) {
+          return;
+        }
+        handleSubmit();
+      };
       editable.focus();
       if (pendingInitialSelection) {
         editable.setSelectionRange(
@@ -1071,6 +1089,6 @@ export const textWysiwyg = ({
   excalidrawContainer
     ?.querySelector(".excalidraw-textEditorContainer")!
     .appendChild(editable);
-
+  /*ymjr>>*/ //let win = window as any; if(editable) win.editable=editable/*ymjr<<*/
   return handleSubmit;
 };

@@ -152,6 +152,44 @@ export const getTransformHandlesFromCoords = (
   const centeringOffset = (size - spacing * 2) / (2 * zoom.value);
 
   const transformHandles: TransformHandles = {
+    //ymjr++>>
+    w: generateTransformHandle(
+      x1 - dashedLineMargin - handleMarginX + centeringOffset,
+      y1 + height / 2 + centeringOffset,
+      handleWidth,
+      handleHeight,
+      cx,
+      cy,
+      angle,
+    ),
+    n: generateTransformHandle(
+      x1 + width / 2 + centeringOffset,
+      y1 - dashedLineMargin - handleMarginY + centeringOffset,
+      handleWidth,
+      handleHeight,
+      cx,
+      cy,
+      angle,
+    ),
+    e: generateTransformHandle(
+      x2 + dashedLineMargin - centeringOffset,
+      y1 + height / 2 + centeringOffset,
+      handleWidth,
+      handleHeight,
+      cx,
+      cy,
+      angle,
+    ),
+    s: generateTransformHandle(
+      x1 + width / 2 + centeringOffset,
+      y2 + dashedLineMargin - centeringOffset,
+      handleWidth,
+      handleHeight,
+      cx,
+      cy,
+      angle,
+    ),
+    //ymjr++<<
     nw: omitSides.nw
       ? undefined
       : generateTransformHandle(
@@ -275,6 +313,7 @@ export const getTransformHandles = (
   elementsMap: ElementsMap,
   pointerType: PointerType = "mouse",
   omitSides: { [T in TransformHandleType]?: boolean } = DEFAULT_OMIT_SIDES,
+  appState: InteractiveCanvasAppState, //ymjr
 ): TransformHandles => {
   // so that when locked element is selected (especially when you toggle lock
   // via keyboard) the locked element is visually distinct, indicating

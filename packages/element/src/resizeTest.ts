@@ -67,6 +67,7 @@ export const resizeTest = <Point extends GlobalPoint | LocalPoint>(
       elementsMap,
       pointerType,
       getOmitSidesForEditorInterface(editorInterface),
+      appState, //ymjr
     );
 
   if (

@@ -194,7 +194,8 @@ export class AnimatedTrail implements Trail {
     const svgPaths = paths.join(" ").trim();
     this.trailElement.setAttribute("d", svgPaths);
 
-    if (this.trailAnimation) {
+    if (this.trailAnimation || this.options.stroke) {
+      //ymjr
       this.trailElement.setAttribute(
         "fill",
         (this.options.fill ?? (() => "black"))(this),

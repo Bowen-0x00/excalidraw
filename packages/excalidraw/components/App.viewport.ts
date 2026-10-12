@@ -740,6 +740,8 @@ export class AppViewport {
       preserveScrollConstraintsSnapBack?: boolean;
     },
   ) => {
+    (window as any)?.translateCanvas_Hook?.(state); //ymjr
+
     if (this.isLockedTransitionPending) {
       return false;
     }

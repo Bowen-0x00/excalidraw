@@ -219,7 +219,7 @@ export class Renderer {
     const visibleElements: NonDeletedExcalidrawElement[] = [];
     for (const element of elementsMap.values()) {
       if (
-        isElementInViewport(
+        (isElementInViewport(
           element,
           width,
           height,
@@ -231,7 +231,10 @@ export class Renderer {
             scrollY,
           },
           elementsMap,
-        )
+        ) &&
+          !element?.customData?.hide) ||
+        (element?.customData?.fixed &&
+          !(element.opacity == 0 && element.locked == true)) //ymjr
       ) {
         visibleElements.push(element);
       }

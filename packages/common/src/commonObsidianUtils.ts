@@ -10,6 +10,7 @@ const normalizeStylesPanelMode = (mode: unknown): StylesPanelMode =>
     ? (mode as StylesPanelMode)
     : "tray";
 
+// ymjr: retain the Obsidian device bridge through the upstream host adapter.
 export const getObsidianDeviceInfo = () =>
   getObsidianCommonHost()?.getDeviceInfo() ?? null;
 

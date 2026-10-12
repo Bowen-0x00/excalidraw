@@ -41,6 +41,16 @@ const deleteSelectedElements = (
   appState: AppState,
   app: AppClassProperties,
 ) => {
+  let currentElements = elements;
+  let currentAppState = appState;
+
+  //ymjr
+  const core = (window as any).EA_Core;
+  if (core) {
+    const ctx = { elements: currentElements, appState: currentAppState, app };
+    core.dispatchSync("beforeDeleteSelectedElements", ctx);
+  }
+
   const framesToBeDeleted = new Set(
     getSelectedElements(
       elements.filter((el) => isFrameLikeElement(el)),
@@ -169,6 +179,18 @@ const deleteSelectedElements = (
     }
   }
 
+  //ymjr
+  if (core) {
+    const ctx = {
+      App: app,
+      appState,
+      nextElements,
+      nextEditingGroupId,
+      selectedElementIds,
+    };
+    core.dispatchSync("afterDeleteSelectedElements", ctx);
+  }
+
   return {
     elements: nextElements,
     appState: {
@@ -211,6 +233,15 @@ export const actionDeleteSelected = register({
   icon: TrashIcon,
   trackEvent: { category: "element", action: "delete" },
   perform: (elements, appState, formData, app) => {
+    // (window as any)?.deleteSelectedElementsHook?.(elements, appState, app);//ymjr
+    const core = (window as any).EA_Core;
+    if (core) {
+      const isIntercepted = core.dispatchSync("deleteSelectedElements", {
+        elements,
+        appState,
+        App: app,
+      });
+    }
     if (appState.selectedLinearElement?.isEditing) {
       const { elementId, selectedPointsIndices } =
         appState.selectedLinearElement;

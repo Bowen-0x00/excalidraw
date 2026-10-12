@@ -346,11 +346,28 @@ const bindingStrategyForNewSimpleArrowEndpointDragging = (
   // With new arrows this handles the binding at arrow creation
   if (startDragged) {
     if (hit) {
-      start = {
-        element: hit,
-        mode: "inside",
-        focusPoint: point,
-      };
+      // ymjr: preserve per-element point and edge snap modes.
+      const targetSnapMode = hit?.customData?.snap || arrow.customData?.snap;
+
+      if (targetSnapMode === "points" || targetSnapMode === true) {
+        start = {
+          element: hit,
+          mode: "inside",
+          focusPoint: getClosestSnapPoint(hit, point, elementsMap),
+        };
+      } else if (targetSnapMode === "edge") {
+        start = {
+          element: hit,
+          mode: "inside",
+          focusPoint: getClosestEdgePoint(hit, point, elementsMap),
+        };
+      } else {
+        start = {
+          element: hit,
+          mode: "inside",
+          focusPoint: point,
+        };
+      }
     } else {
       start = { mode: null };
     }
@@ -457,12 +474,28 @@ const bindingStrategyForNewSimpleArrowEndpointDragging = (
       if (hit) {
         const isInsideBinding =
           globalBindMode === "inside" || globalBindMode === "skip";
+        // ymjr: preserve per-element point and edge snap modes.
+        const targetSnapMode = hit?.customData?.snap || arrow.customData?.snap;
 
-        end = {
-          mode: isInsideBinding ? "inside" : "orbit",
-          element: hit,
-          focusPoint: point,
-        };
+        if (targetSnapMode === "points" || targetSnapMode === true) {
+          end = {
+            element: hit,
+            mode: "inside",
+            focusPoint: getClosestSnapPoint(hit, point, elementsMap),
+          };
+        } else if (targetSnapMode === "edge") {
+          end = {
+            element: hit,
+            mode: "inside",
+            focusPoint: getClosestEdgePoint(hit, point, elementsMap),
+          };
+        } else {
+          end = {
+            mode: isInsideBinding ? "inside" : "orbit",
+            element: hit,
+            focusPoint: point,
+          };
+        }
       } else {
         end = { mode: null };
       }
@@ -588,11 +621,28 @@ const bindingStrategyForSimpleArrowEndpointDragging_complex = (
   }
   // The opposite binding is on a different element or no binding
   else {
-    current = {
-      element: hit,
-      mode: "orbit",
-      focusPoint: point,
-    };
+    // ymjr: preserve per-element point and edge snap modes.
+    const targetSnapMode = hit?.customData?.snap || arrow.customData?.snap;
+
+    if (targetSnapMode === "points" || targetSnapMode === true) {
+      current = {
+        element: hit,
+        mode: "inside",
+        focusPoint: getClosestSnapPoint(hit, point, elementsMap),
+      };
+    } else if (targetSnapMode === "edge") {
+      current = {
+        element: hit,
+        mode: "inside",
+        focusPoint: getClosestEdgePoint(hit, point, elementsMap),
+      };
+    } else {
+      current = {
+        element: hit,
+        mode: "orbit",
+        focusPoint: point,
+      };
+    }
   }
 
   // Must return as only one endpoint is dragged, therefore
@@ -765,11 +815,15 @@ const getBindingStrategyForDraggingBindingElementEndpoints_simple = (
     appState.selectedLinearElement?.initialState
       .arrowOtherEndpointInitialBinding;
 
+  const isSnapMode = hit?.customData?.snap || arrow.customData?.snap; //ymjr
   // Handle outside-outside binding to the same element
   if (
     otherBinding &&
     otherBinding.elementId === hit?.id &&
-    (!opts?.newArrow || appState.selectedLinearElement?.initialState.origin)
+    !isSnapMode(
+      //ymjr
+      !opts?.newArrow || appState.selectedLinearElement?.initialState.origin,
+    )
   ) {
     return {
       start: {
@@ -843,51 +897,72 @@ const getBindingStrategyForDraggingBindingElementEndpoints_simple = (
   }
 
   // Handle normal cases
-  const current: BindingStrategy = hit
-    ? pointInElement
-      ? {
-          mode: "inside",
-          element: hit,
-          focusPoint: globalPoint,
-        }
-      : {
-          mode: "orbit",
-          element: hit,
-          focusPoint:
-            projectFixedPointOntoDiagonal(
-              arrow,
-              opts?.angleLocked
-                ? globalPoint
-                : appState.gridModeEnabled
-                ? snapBoundPointToGrid(
-                    pointFrom<GlobalPoint>(scenePointerX, scenePointerY),
-                    hit,
-                    elementsMap,
-                    appState.gridSize as NullableGridSize,
-                    arrow,
-                    LinearElementEditor.getPointAtIndexGlobalCoordinates(
-                      arrow,
-                      startDragged ? 1 : -2,
+  let current: BindingStrategy;
+  // ymjr: preserve per-element point and edge snap modes.
+  const targetSnapMode = hit?.customData?.snap || arrow.customData?.snap;
+
+  if (hit && (targetSnapMode === "points" || targetSnapMode === true)) {
+    current = {
+      element: hit,
+      mode: "inside",
+      focusPoint: getClosestSnapPoint(hit, globalPoint, elementsMap),
+    };
+  } else if (hit && targetSnapMode === "edge") {
+    current = {
+      element: hit,
+      mode: "inside",
+      focusPoint: getClosestEdgePoint(hit, globalPoint, elementsMap),
+    };
+  } else {
+    current = hit
+      ? pointInElement
+        ? {
+            mode: "inside",
+            element: hit,
+            focusPoint: globalPoint,
+          }
+        : {
+            mode: "orbit",
+            element: hit,
+            focusPoint:
+              projectFixedPointOntoDiagonal(
+                arrow,
+                opts?.angleLocked
+                  ? globalPoint
+                  : appState.gridModeEnabled
+                  ? snapBoundPointToGrid(
+                      pointFrom<GlobalPoint>(scenePointerX, scenePointerY),
+                      hit,
                       elementsMap,
-                    ),
-                  )
-                : globalPoint,
-              hit,
-              startDragged ? "start" : "end",
-              elementsMap,
-              appState.zoom,
-              appState.isMidpointSnappingEnabled &&
-                !opts?.angleLocked &&
-                !appState.gridModeEnabled,
-            ) || globalPoint,
-        }
-    : { mode: null };
+                      appState.gridSize as NullableGridSize,
+                      arrow,
+                      LinearElementEditor.getPointAtIndexGlobalCoordinates(
+                        arrow,
+                        startDragged ? 1 : -2,
+                        elementsMap,
+                      ),
+                    )
+                  : globalPoint,
+                hit,
+                startDragged ? "start" : "end",
+                elementsMap,
+                appState.zoom,
+                appState.isMidpointSnappingEnabled &&
+                  !opts?.angleLocked &&
+                  !appState.gridModeEnabled,
+              ) || globalPoint,
+          }
+      : { mode: null };
+  }
 
   const otherEndpoint = LinearElementEditor.getPointAtIndexGlobalCoordinates(
     arrow,
     startDragged ? -1 : 0,
     elementsMap,
   );
+  const isOtherSnapMode =
+    otherBindableElement?.customData?.snap || arrow.customData?.snap; //ymjr
+
   const pointIsCloseToOtherElement =
     otherFocusPoint &&
     otherBindableElement &&
@@ -921,6 +996,7 @@ const getBindingStrategyForDraggingBindingElementEndpoints_simple = (
       otherBindableElement &&
       !otherFocusPointIsInElement &&
       !pointIsCloseToOtherElement &&
+      !isOtherSnapMode &&
       appState.selectedLinearElement?.initialState.altFocusPoint
     ) {
       other = {
@@ -928,7 +1004,7 @@ const getBindingStrategyForDraggingBindingElementEndpoints_simple = (
         element: otherBindableElement,
         focusPoint: appState.selectedLinearElement.initialState.altFocusPoint,
       };
-    } else if (opts?.angleLocked && otherBindableElement) {
+    } else if (opts?.angleLocked && otherBindableElement && !isOtherSnapMode) {
       other = {
         mode: "orbit",
         element: otherBindableElement,
@@ -2024,10 +2100,16 @@ export const updateBoundPoint = (
       ? focusPoint
       : outlinePoint || focusPoint;
 
+  // ymjr: Custom logic to prevent collapsing to center when snapping to the same element
+  const isSnapMode = bindableElement.customData?.snap || arrow.customData?.snap;
+  const isSameElement = otherBindable?.id === bindableElement.id;
+  const shouldBypassCollapse = isSnapMode && isSameElement;
+
   // 1. Handle case when the outline point (or focus point) is inside
   // the other shape by short-circuiting to the focus point, otherwise
   // the arrow would invert
   if (
+    !shouldBypassCollapse && // ymjr: bypass overlap check for snap mode on same element
     otherBindable &&
     outlinePoint &&
     !dragging &&
@@ -2073,7 +2155,8 @@ export const updateBoundPoint = (
   // 3. If the arrow is too short while connected on both ends and
   // the other arrow endpoint will not be inside the bindable, just
   // check the arrow size and make a decision based on that
-  if (arrowTooShort) {
+  if (arrowTooShort && !shouldBypassCollapse) {
+    // ymjr: prevent collapsing if it's a short snap arrow
     return LinearElementEditor.createPointAt(
       arrow,
       elementsMap,
@@ -2198,6 +2281,7 @@ export const calculateFixedPointForNonElbowArrowBinding = (
   const sizeFloor = getBindingGap(hoveredElement, linearElement);
 
   // Calculate the ratio relative to the element's bounds
+  // ymjr
   const fixedPointX =
     (nonRotatedPoint[0] - hoveredElement.x) /
     Math.max(hoveredElement.width, sizeFloor);
@@ -2738,6 +2822,517 @@ export const normalizeFixedPoint = <T extends FixedPoint>(
   }
 
   return clamped;
+};
+
+//ymjr
+const getClosestSnapPoint = (
+  element: ExcalidrawBindableElement,
+  cursor: GlobalPoint,
+  elementsMap: NonDeletedSceneElementsMap,
+): GlobalPoint => {
+  // 1. Obtain shape-based snap candidates
+  const candidates = getSnapCandidates(element);
+
+  let closestPoint = cursor;
+  let minDistance = Infinity;
+
+  candidates.forEach((fp) => {
+    // 2. Convert proportional coordinates to world coordinates
+    const globalFP = getGlobalFixedPointForBindableElement(
+      fp,
+      element,
+      elementsMap,
+    );
+
+    const dist = pointDistanceSq(cursor, globalFP);
+    if (dist < minDistance) {
+      minDistance = dist;
+      closestPoint = globalFP;
+    }
+  });
+
+  return closestPoint;
+};
+
+// ymjr: Get edge point closest to cursor (for edge mode, enforcing snap binding)
+// Helper: compute closest projection of (px, py) onto segment A(ax, ay)-B(bx, by) and squared distance
+const projectPointToSegment = (
+  px: number,
+  py: number,
+  ax: number,
+  ay: number,
+  bx: number,
+  by: number,
+) => {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const vx = px - ax;
+  const vy = py - ay;
+
+  const lenSq = dx * dx + dy * dy;
+  let t = lenSq === 0 ? 0 : (vx * dx + vy * dy) / lenSq;
+  t = Math.max(0, Math.min(1, t)); // Clamp to segment interior
+
+  const cx = ax + t * dx;
+  const cy = ay + t * dy;
+  return { cx, cy, distSq: (px - cx) ** 2 + (py - cy) ** 2 };
+};
+
+export const getClosestEdgePoint = (
+  element: ExcalidrawBindableElement,
+  cursor: GlobalPoint,
+  elementsMap: NonDeletedSceneElementsMap,
+): GlobalPoint => {
+  const center = elementCenterPoint(element, elementsMap);
+  const nonRotatedPoint = pointRotateRads(
+    cursor,
+    center,
+    -element.angle as Radians,
+  );
+
+  const minX = element.x;
+  const minY = element.y;
+  const maxX = element.x + element.width;
+  const maxY = element.y + element.height;
+  const midX = minX + element.width / 2;
+  const midY = minY + element.height / 2;
+
+  let closestPointX = nonRotatedPoint[0];
+  let closestPointY = nonRotatedPoint[1];
+
+  // ==========================================
+  // 1. Prioritize SVG Path Shape (continuous edge snapping)
+  // ==========================================
+  if (element.customData?.svgPathShape) {
+    const rawPoints = getPointsFromSvgPath(element.customData.svgPathShape);
+
+    // Convert rawPoints to absolute coordinates within element bounds based on scale
+    // rawPoints are assumed to be relative to element local top-left [x, y]
+    if (rawPoints.length > 1) {
+      let minDistSq = Infinity;
+      // Treat SVG path as continuous line segments
+      for (let i = 0; i < rawPoints.length - 1; i++) {
+        const p1 = rawPoints[i];
+        const p2 = rawPoints[i + 1];
+
+        const proj = projectPointToSegment(
+          nonRotatedPoint[0],
+          nonRotatedPoint[1],
+          minX + p1[0],
+          minY + p1[1],
+          minX + p2[0],
+          minY + p2[1],
+        );
+
+        if (proj.distSq < minDistSq) {
+          minDistSq = proj.distSq;
+          closestPointX = proj.cx;
+          closestPointY = proj.cy;
+        }
+      }
+    }
+  }
+  // ==========================================
+  // 2. Handle lines and arrows
+  // ==========================================
+  else if (element.type === "line") {
+    let minDistSq = Infinity;
+
+    for (let i = 0; i < element.points.length - 1; i++) {
+      const p1 = element.points[i];
+      const p2 = element.points[i + 1];
+
+      const proj = projectPointToSegment(
+        nonRotatedPoint[0],
+        nonRotatedPoint[1],
+        minX + p1[0],
+        minY + p1[1],
+        minX + p2[0],
+        minY + p2[1],
+      );
+
+      if (proj.distSq < minDistSq) {
+        minDistSq = proj.distSq;
+        closestPointX = proj.cx;
+        closestPointY = proj.cy;
+      }
+    }
+  }
+  // ==========================================
+  // 3. Diamond
+  // ==========================================
+  else if (element.type === "diamond") {
+    const vertices = [
+      [midX, minY],
+      [maxX, midY],
+      [midX, maxY],
+      [minX, midY],
+    ];
+
+    let minDistSq = Infinity;
+    for (let i = 0; i < 4; i++) {
+      const p1 = vertices[i];
+      const p2 = vertices[(i + 1) % 4];
+
+      const proj = projectPointToSegment(
+        nonRotatedPoint[0],
+        nonRotatedPoint[1],
+        p1[0],
+        p1[1],
+        p2[0],
+        p2[1],
+      );
+
+      if (proj.distSq < minDistSq) {
+        minDistSq = proj.distSq;
+        closestPointX = proj.cx;
+        closestPointY = proj.cy;
+      }
+    }
+  }
+  // ==========================================
+  // 4. Ellipse
+  // ==========================================
+  else if (element.type === "ellipse") {
+    const rx = element.width / 2;
+    const ry = element.height / 2;
+    const px = nonRotatedPoint[0] - midX;
+    const py = nonRotatedPoint[1] - midY;
+
+    if (px !== 0 || py !== 0) {
+      const angle = Math.atan2(py, px);
+      closestPointX = midX + rx * Math.cos(angle);
+      closestPointY = midY + ry * Math.sin(angle);
+    }
+  }
+  // ==========================================
+  // 5. Default bounding box (rectangles, etc.)
+  // ==========================================
+  else {
+    let x = clamp(nonRotatedPoint[0], minX, maxX);
+    let y = clamp(nonRotatedPoint[1], minY, maxY);
+
+    const distLeft = Math.abs(x - minX);
+    const distRight = Math.abs(x - maxX);
+    const distTop = Math.abs(y - minY);
+    const distBottom = Math.abs(y - maxY);
+
+    const minDist = Math.min(distLeft, distRight, distTop, distBottom);
+
+    if (minDist === distLeft) x = minX;
+    else if (minDist === distRight) x = maxX;
+    else if (minDist === distTop) y = minY;
+    else y = maxY;
+
+    closestPointX = x;
+    closestPointY = y;
+  }
+
+  return pointRotateRads(
+    pointFrom(closestPointX, closestPointY),
+    center,
+    element.angle as Radians,
+  );
+};
+
+export const getSnapCandidates = (element: ExcalidrawElement): FixedPoint[] => {
+  const candidates: FixedPoint[] = [];
+
+  // Helper: check whether two points coincide
+  const isSamePoint = (
+    p1: readonly [number, number],
+    p2: readonly [number, number],
+  ) => {
+    return Math.abs(p1[0] - p2[0]) < 1e-5 && Math.abs(p1[1] - p2[1]) < 1e-5;
+  };
+
+  // ==========================================
+  // 1. Prioritize SVG Path Shape (custom path)
+  // ==========================================
+  if (element.customData?.svgPathShape) {
+    const rawPoints = getPointsFromSvgPath(element.customData.svgPathShape);
+
+    // --- ymjr: SVG scale calculation logic ---
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity;
+    if (rawPoints.length > 0) {
+      rawPoints.forEach((p) => {
+        if (p[0] < minX) minX = p[0];
+        if (p[0] > maxX) maxX = p[0];
+        if (p[1] < minY) minY = p[1];
+        if (p[1] > maxY) maxY = p[1];
+      });
+    } else {
+      minX = 0;
+      minY = 0;
+      maxX = 1;
+      maxY = 1;
+    }
+
+    let refW = 1;
+    let refH = 1;
+    const viewBox = element.customData?.svgViewBox;
+
+    if (viewBox && viewBox.width > 0 && viewBox.height > 0) {
+      refW = viewBox.width;
+      refH = viewBox.height;
+    } else {
+      const w = maxX - minX;
+      const h = maxY - minY;
+      refW = w > 0 ? w : 1;
+      refH = h > 0 ? h : 1;
+    }
+
+    const addCandidate = (x: number, y: number) => {
+      let cx = x / refW;
+      let cy = y / refH;
+      if (element.customData?.scaleX && element.customData.scaleX < 0)
+        cx = 1 - cx;
+      if (element.customData?.scaleY && element.customData.scaleY < 0)
+        cy = 1 - cy;
+      candidates.push([cx, cy]);
+    };
+    // --- End scale logic ---
+
+    // A. Compute centroid
+    let sumX = 0,
+      sumY = 0;
+    const uniquePoints = rawPoints.filter(
+      (p, index) => index === 0 || !isSamePoint(p, rawPoints[index - 1]),
+    );
+
+    if (uniquePoints.length > 0) {
+      uniquePoints.forEach((p) => {
+        sumX += p[0];
+        sumY += p[1];
+      });
+      addCandidate(sumX / uniquePoints.length, sumY / uniquePoints.length);
+    } else {
+      candidates.push([0.5, 0.5]);
+    }
+
+    // B. Add vertices along path
+    rawPoints.forEach((p) => {
+      addCandidate(p[0], p[1]);
+    });
+
+    // C. Add segment midpoints
+    if (rawPoints.length < 50) {
+      for (let i = 0; i < rawPoints.length - 1; i++) {
+        const p1 = rawPoints[i];
+        const p2 = rawPoints[i + 1];
+        if (Math.hypot(p1[0] - p2[0], p1[1] - p2[1]) > 10) {
+          addCandidate((p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2);
+        }
+      }
+    }
+
+    return candidates;
+  }
+
+  // ==========================================
+  // 2. Standard shape logic (Line, Arrow, Ellipse, Diamond, Rectangle)
+  // ==========================================
+  switch (element.type) {
+    case "line":
+    case "arrow": {
+      const points = element.points;
+      const w = element.width || 1;
+      const h = element.height || 1;
+
+      let sumX = 0,
+        sumY = 0,
+        count = 0;
+      const isClosed =
+        points.length > 2 && isSamePoint(points[0], points[points.length - 1]);
+      const loopLength = isClosed ? points.length - 1 : points.length;
+
+      for (let i = 0; i < loopLength; i++) {
+        sumX += points[i][0];
+        sumY += points[i][1];
+        count++;
+      }
+      if (count > 0) candidates.push([sumX / count / w, sumY / count / h]);
+      else candidates.push([0.5, 0.5]);
+
+      // Vertices and midpoints
+      points.forEach((p, index) => {
+        candidates.push([p[0] / w, p[1] / h]);
+        if (index < points.length - 1) {
+          const pNext = points[index + 1];
+          candidates.push([
+            (p[0] + pNext[0]) / 2 / w,
+            (p[1] + pNext[1]) / 2 / h,
+          ]);
+        } else if (!isClosed && points.length > 2) {
+          const pFirst = points[0];
+          const dist = Math.hypot(p[0] - pFirst[0], p[1] - pFirst[1]);
+          if (dist < 10 || dist < Math.max(w, h) * 0.05) {
+            candidates.push([
+              (p[0] + pFirst[0]) / 2 / w,
+              (p[1] + pFirst[1]) / 2 / h,
+            ]);
+          }
+        }
+      });
+      break;
+    }
+
+    case "ellipse": {
+      // Center point
+      candidates.push([0.5, 0.5]);
+      // 16 equidistant points around circumference
+      const count = 16;
+      for (let i = 0; i < count; i++) {
+        const angle = (i * 2 * Math.PI) / count;
+        candidates.push([
+          0.5 + 0.5 * Math.cos(angle),
+          0.5 + 0.5 * Math.sin(angle),
+        ]);
+      }
+      break;
+    }
+
+    case "diamond": {
+      candidates.push([0.5, 0.5]); // Center point
+
+      // Diamond 4 vertices (top, right, bottom, left)
+      const vertices = [
+        [0.5, 0],
+        [1, 0.5],
+        [0.5, 1],
+        [0, 0.5],
+      ];
+
+      // Add four vertices
+      vertices.forEach((v) => candidates.push(v as [number, number]));
+
+      // Iterate 4 edges, adding 3 intermediate points (1/4, 1/2, 3/4) per edge, totaling 5 points per edge
+      for (let i = 0; i < 4; i++) {
+        const p1 = vertices[i];
+        const p2 = vertices[(i + 1) % 4]; // Next vertex (closed)
+        [0.25, 0.5, 0.75].forEach((t) => {
+          candidates.push([
+            p1[0] + (p2[0] - p1[0]) * t,
+            p1[1] + (p2[1] - p1[1]) * t,
+          ]);
+        });
+      }
+      break;
+    }
+
+    default: {
+      // Default rectangle (5 points per edge, 17 unique snap points including center)
+      candidates.push([0.5, 0.5]); // Center point
+
+      const ratios = [0, 0.25, 0.5, 0.75, 1];
+
+      // Top and bottom edges
+      ratios.forEach((x) => {
+        candidates.push([x, 0]);
+        candidates.push([x, 1]);
+      });
+
+      // Left and right edges (skip 0 and 1 to avoid duplicating corner vertices)
+      const sideRatios = [0.25, 0.5, 0.75];
+      sideRatios.forEach((y) => {
+        candidates.push([0, y]);
+        candidates.push([1, y]);
+      });
+      break;
+    }
+  }
+
+  return candidates;
+};
+
+// ymjr: Lightweight SVG path parser extracting key points
+const getPointsFromSvgPath = (pathData: string): [number, number][] => {
+  const points: [number, number][] = [];
+
+  // Regex matches commands and params, e.g. "M 10 20", "L 30.5 40", "C 1 2 3 4 5 6"
+  // ([a-zA-Z]) captures command
+  // ([^a-zA-Z]*) captures parameter string
+  const commandRegex = /([a-zA-Z])([^a-zA-Z]*)/g;
+
+  let match;
+  let currentX = 0;
+  let currentY = 0;
+
+  // Helper: extract numeric array from parameter string
+  const parseParams = (str: string) => {
+    return str
+      .trim()
+      .split(/[\s,]+/)
+      .filter(Boolean)
+      .map(parseFloat);
+  };
+
+  while ((match = commandRegex.exec(pathData)) !== null) {
+    const command = match[1];
+    const params = parseParams(match[2]);
+
+    // Focus on commands that change position, extracting endpoint as snap candidate
+    // Handles absolute coordinates (uppercase) primarily, as generated SVG shapes use absolute commands
+
+    let targetX = null;
+    let targetY = null;
+
+    switch (command.toUpperCase()) {
+      case "M": // Move to (x, y)
+      case "L": // Line to (x, y)
+      case "T": // Smooth Quad Bezier (x, y)
+        if (params.length >= 2) {
+          targetX = params[params.length - 2];
+          targetY = params[params.length - 1];
+        }
+        break;
+
+      case "H": // Horizontal (x)
+        if (params.length >= 1) {
+          targetX = params[0];
+          targetY = currentY; // Y unchanged
+        }
+        break;
+
+      case "V": // Vertical (y)
+        if (params.length >= 1) {
+          targetX = currentX; // X unchanged
+          targetY = params[0];
+        }
+        break;
+
+      case "C": // Cubic Bezier (x1 y1 x2 y2 x y) - take last two
+      case "S": // Smooth Cubic (x2 y2 x y)
+      case "Q": // Quadratic Bezier (x1 y1 x y)
+      case "A": // Arc (rx ry rot large sweep x y)
+        if (params.length >= 2) {
+          targetX = params[params.length - 2];
+          targetY = params[params.length - 1];
+        }
+        break;
+
+      case "Z": // Close path
+        // Z returns to path start; omitted here as start is captured by M
+        break;
+    }
+
+    if (targetX !== null && targetY !== null) {
+      // Handle relative coordinates (lowercase command)
+      if (command === command.toLowerCase()) {
+        targetX += currentX;
+        targetY += currentY;
+      }
+
+      points.push([targetX, targetY]);
+      currentX = targetX;
+      currentY = targetY;
+    }
+  }
+
+  return points;
 };
 
 type Side =

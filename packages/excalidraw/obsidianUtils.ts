@@ -108,11 +108,14 @@ export function getFontMetrics(
 export function registerLocalFont(
   fontMetrics: FontMetadata & { name: string },
   uri: string,
+  fontfamily: string, //ymjr
+  fontName: string, //ymjr
 ) {
-  FONT_METADATA[FONT_FAMILY["Local Font"]] = {
+  FONT_METADATA[fontfamily] = {
     metrics: fontMetrics.metrics,
+    fontName, //ymjr
   };
-  Fonts.register("Local Font", fontMetrics, { uri });
+  Fonts.register(fontfamily || "Local Font", fontMetrics, { uri });
 }
 
 export function getFontFamilies(): string[] {
@@ -171,7 +174,7 @@ export async function registerFontsInCSS() {
     for (const font of fontFaces.fontFaces) {
       try {
         const content = await font.getContentLegacy();
-        cssContent += `@font-face {font-family: ${font.fontFace.family}; src: url(${content});}\n`;
+        cssContent += `@font-face {font-family: "${font.fontFace.family}"; src: url(${content});}\n`; //ymjr
       } catch (e) {
         console.error(`Skipped inlining font "${font.toString()}"`, e);
       }
@@ -181,9 +184,19 @@ export async function registerFontsInCSS() {
 }
 
 export async function getCSSFontDefinition(
-  fontFamily: number,
+  fontFamily: number | string,
 ): Promise<string> {
-  const fontFaces = Fonts.registered.get(fontFamily)?.fontFaces;
+  //ymjr
+  let fontFamilyString = fontFamily;
+  if (typeof fontFamily == "number") {
+    for (const [fontFamilyString_, id] of Object.entries(FONT_FAMILY)) {
+      if (id === fontFamily) {
+        fontFamilyString = fontFamilyString_;
+        break;
+      }
+    }
+  }
+  const fontFaces = Fonts.registered.get(fontFamilyString)?.fontFaces;
   if (!fontFaces) {
     return "";
   }
@@ -192,7 +205,26 @@ export async function getCSSFontDefinition(
     return "";
   }
   const content = await fontFace.getContentLegacy();
-  return `@font-face {font-family: ${fontFaces[0].fontFace.family}; src: url(${content});}`;
+  return `@font-face {font-family: "${fontFaces[0].fontFace.family}"; src: url(${content});}`; //ymjr
+}
+
+export function getCSSFontDefinition2(fontFamily: number | string): string {
+  //ymjr
+  let fontFamilyString = fontFamily;
+  if (typeof fontFamily == "number") {
+    for (const [fontFamilyString_, id] of Object.entries(FONT_FAMILY)) {
+      if (id === fontFamily) {
+        fontFamilyString = fontFamilyString_;
+        break;
+      }
+    }
+  }
+  const font = Fonts.registered.get(fontFamilyString);
+  return `@font-face {font-family: "${fontFamilyString}"; src: url(${
+    typeof font?.fontFaces[0]?.urls[0] == "string"
+      ? font?.fontFaces[0]?.urls[0]
+      : font?.fontFaces[0]?.urls[0]?.href ?? ""
+  });}`;
 }
 
 export async function loadSceneFonts(

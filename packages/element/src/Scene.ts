@@ -274,6 +274,12 @@ export class Scene {
       skipValidation?: true;
     },
   ) {
+    // (window as any)?.replaceAllElementsHook?.(this, nextElements) //ymjr
+    const core = (window as any).EA_Core;
+    if (core) {
+      const context = { scene: this, nextElements };
+      core.dispatchSync("replaceAllElements", context);
+    }
     // we do trust the insertion order on the map, though maybe we shouldn't and should prefer order defined by fractional indices
     const _nextElements = toArray(nextElements);
     const nextFrameLikes: ExcalidrawFrameLikeElement[] = [];

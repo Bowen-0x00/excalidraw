@@ -18,7 +18,10 @@ import type {
 export type ChartType = "bar" | "line" | "radar";
 export type FillStyle = "hachure" | "cross-hatch" | "solid" | "zigzag";
 export type FontFamilyKeys = keyof typeof FONT_FAMILY;
-export type FontFamilyValues = typeof FONT_FAMILY[FontFamilyKeys];
+export type FontFamilyValues =
+  | typeof FONT_FAMILY[FontFamilyKeys]
+  | string
+  | number; //ymjr
 export type Theme = typeof THEME[keyof typeof THEME];
 export type FontString = string & { _brand: "fontString" };
 export type GroupId = string;
@@ -46,7 +49,11 @@ type _ExcalidrawElementBase = Readonly<{
   fillStyle: FillStyle;
   strokeWidth: number;
   strokeStyle: StrokeStyle;
-  roundness: null | { type: RoundnessType; value?: number };
+  roundness: null | {
+    type: RoundnessType;
+    value?: number;
+    roundType?: "bezier" | "arc"; //ymjr
+  };
   roughness: number;
   opacity: number;
   width: number;
@@ -196,11 +203,11 @@ export type ExcalidrawFrameElement = _ExcalidrawElementBase & {
   name: string | null;
   frameRole?: FrameRole; //zsviczian
   customData?: {
-    frameColor? : {
-      fill: string,
-      stroke: string,
-      nameColor: string
-    },
+    frameColor?: {
+      fill: string;
+      stroke: string;
+      nameColor: string;
+    };
   }; //zsviczian
 };
 
@@ -326,7 +333,8 @@ export type ExcalidrawBindableElement =
   | ExcalidrawIframeElement
   | ExcalidrawEmbeddableElement
   | ExcalidrawFrameElement
-  | ExcalidrawMagicFrameElement;
+  | ExcalidrawMagicFrameElement
+  | ExcalidrawLineElement; //ymjr
 
 export type ExcalidrawTextContainer =
   | ExcalidrawRectangleElement
@@ -388,6 +396,10 @@ export type Arrowhead =
   | "triangle_outline"
   | "diamond"
   | "diamond_outline"
+  | "chevron" //ymjr
+  | "chevron_outline" //ymjr
+  | "block_arrow" //ymjr
+  | "block_arrow_outline" //ymjr
   | CardinalityArrowhead;
 
 export type AnyArrowhead = Arrowhead | ArrowheadLegacy;

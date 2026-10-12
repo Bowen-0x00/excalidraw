@@ -106,7 +106,8 @@
     "radix-ui": "1.4.3",
     "roughjs": "4.6.4",
     "sass": "1.51.0",
-    "tunnel-rat": "0.1.2"
+    "tunnel-rat": "0.1.2",
+    "gifuct-js": "^2.1.2"
   },
   "devDependencies": {
     "@excalidraw/mermaid-to-excalidraw": "2.2.2",

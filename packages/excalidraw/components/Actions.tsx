@@ -25,11 +25,7 @@ import { actionToggleViewMode } from "../actions/actionToggleViewMode";
 
 import "./Actions.scss";
 
-import {
-  useAppProps,
-  useStylesPanelMode,
-  useExcalidrawContainer,
-} from "./App";
+import { useAppProps, useStylesPanelMode, useExcalidrawContainer } from "./App";
 import Stack from "./Stack";
 import { Tooltip } from "./Tooltip";
 import { PropertiesPopover } from "./PropertiesPopover";
@@ -191,7 +187,15 @@ export const SelectedShapeActions = ({
 
       {predicates.sloppiness && <>{renderAction("changeSloppiness")}</>}
 
-      {predicates.roundness && <>{renderAction("changeRoundness")}</>}
+      {predicates.roundness && (
+        <>
+          {renderAction("changeRoundness")}
+          {renderAction("changeRoundnessValue") /*ymjr*/}
+          {renderAction("changeRoundnessType") /*ymjr*/}
+          {renderAction("changeStrokeLineCap") /*ymjr*/}
+          {renderAction("changeStrokeLineJoin") /*ymjr*/}
+        </>
+      )}
 
       {predicates.arrowType && <>{renderAction("changeArrowType")}</>}
 
@@ -204,7 +208,14 @@ export const SelectedShapeActions = ({
       )}
 
       {predicates.verticalAlign && renderAction("changeVerticalAlign")}
-      {predicates.arrowheads && <>{renderAction("changeArrowhead")}</>}
+      {predicates.arrowheads && (
+        <>
+          {/* ymjr: retain custom arrowhead and snap controls. */}
+          {renderAction("changeArrowhead")}
+          {renderAction("changeArrowheadSize") /*ymjr*/}
+          {renderAction("changeSnapProp") /*ymjr*/}
+        </>
+      )}
 
       {/* //zsviczian: add frame role toggle  */}
       {showToggleFrameRoleAction && (

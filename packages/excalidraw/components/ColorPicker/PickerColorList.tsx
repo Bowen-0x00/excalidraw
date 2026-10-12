@@ -66,6 +66,46 @@ const PickerColorList = ({
   return (
     <div className="color-picker-content--default">
       {Object.entries(palette).map(([key, value], index) => {
+        //ymjr
+        if (key.startsWith("__group__")) {
+          const groupTitle = key.replace("__group__", "");
+          return (
+            <div
+              key={key}
+              style={{
+                flexBasis: "100%", // Span full row
+                gridColumn: "1 / -1", // Grid layout compatibility
+                textAlign: "left",
+                fontSize: "0.85rem",
+                fontWeight: "bold",
+                color: "var(--text-primary-color)",
+                padding: "10px 0 4px 4px",
+                borderBottom: "1px solid var(--default-border-color)",
+                marginBottom: "6px",
+                marginTop: index === 0 ? "0" : "8px",
+              }}
+            >
+              {groupTitle}
+            </div>
+          );
+        }
+
+        // ymjr: 2. Render spacer placeholder to preserve 5-column grid alignment
+        if (key.startsWith("__spacer_")) {
+          return (
+            <div
+              key={key}
+              style={{
+                width: "1.875rem", // Matches color button width
+                height: "1.875rem",
+                margin: "0",
+                pointerEvents: "none",
+              }}
+            />
+          );
+        }
+        //ymjr
+
         const color =
           (Array.isArray(value) ? value[activeShade] : value) || "transparent";
 
@@ -84,11 +124,16 @@ const PickerColorList = ({
 
         const keybinding = colorPickerHotkeyBindings[index];
         const displayColor = applyDarkModeFilter(color, theme === THEME.DARK);
-        const label = t(
+        let label = t(
           `colors.${key.replace(/\d+/, "")}` as unknown as TranslationKeys,
           null,
           "",
         );
+
+        if (!label || label.trim() === "" || label.startsWith("colors.")) {
+          //ymjr
+          label = key;
+        }
 
         return (
           <button

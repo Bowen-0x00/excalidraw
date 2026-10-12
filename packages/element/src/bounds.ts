@@ -713,7 +713,12 @@ const CROWFOOT_ARROWHEAD_SIZE = 15;
 /** @returns number in pixels */
 export const getArrowheadSize = (arrowhead: Arrowhead): number => {
   switch (arrowhead) {
+    case "block_arrow": //ymjr
+    case "block_arrow_outline": //ymjr
+      return 30;
     case "arrow":
+    case "chevron": //ymjr
+    case "chevron_outline": //ymjr
       return 25;
     case "diamond":
     case "diamond_outline":
@@ -795,7 +800,7 @@ export const getArrowheadPoints = (
     p0[idx] * Math.pow(t, 3);
 
   // Ee know the last point of the arrow (or the first, if start arrowhead).
-  const [x2, y2] = position === "start" ? p0 : p3;
+  let [x2, y2] = position === "start" ? p0 : p3; //ymjr
 
   // By using cubic bezier equation (B(t)) and the given parameters,
   // we calculate a point that is closer to the last point.
@@ -809,7 +814,15 @@ export const getArrowheadPoints = (
   const nx = (x2 - x1) / distance;
   const ny = (y2 - y1) / distance;
 
+  // ymjr
+  if (element?.customData?.arrowHeadLineWidth) {
+    const offset = element.strokeWidth;
+    x2 += nx * offset;
+    y2 += ny * offset;
+  }
+
   const size = getArrowheadSize(arrowhead);
+  const scale = element?.customData?.arrowHeadSize ?? 1; // ymjr
 
   let length = 0;
 
@@ -833,7 +846,8 @@ export const getArrowheadPoints = (
   // This value is selected by minimizing a minimum size with the last segment of the arrowhead
   const lengthMultiplier =
     arrowhead === "diamond" || arrowhead === "diamond_outline" ? 0.25 : 0.5;
-  const minSize = Math.min(size, length * lengthMultiplier);
+  const minSize =
+    scale != 1 ? size * scale : Math.min(size, length * lengthMultiplier); //ymjr
   const tx = x2 - nx * minSize * offsetMultiplier;
   const ty = y2 - ny * minSize * offsetMultiplier;
   const xs = tx - nx * minSize;

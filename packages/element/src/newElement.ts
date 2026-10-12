@@ -140,7 +140,9 @@ const _newElementBase = <T extends ExcalidrawElement>(
     ExcalidrawGenericElement,
     { type: T["type"]; isDeleted: false }
   > = {
-    id: rest.id || (type === "freedraw" || type === "line" ? randomId() : obsidianId()), //zsviczian
+    id:
+      rest.id ||
+      (type === "freedraw" || type === "line" ? randomId() : obsidianId()), //zsviczian
     type,
     x,
     y,
@@ -566,13 +568,20 @@ export const refreshTextDimensions = (
   if (textElement.isDeleted) {
     return;
   }
-  if (container || !textElement.autoResize) {
+  if (
+    container ||
+    !textElement.autoResize ||
+    textElement?.customData?.template /*ymjr*/
+  ) {
     text = wrapText(
-      text,
+      (textElement?.customData?.template &&
+        (window as any)?.templateMap?.[textElement.id]?.content) ||
+        text, //ymjr
       getFontString(textElement),
       container
         ? getBoundTextMaxWidth(container, textElement)
         : textElement.width,
+      textElement?.customData?.indent, //ymjr
     );
   }
   const dimensions = getAdjustedDimensions(textElement, elementsMap, text);

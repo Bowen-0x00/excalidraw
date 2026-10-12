@@ -370,7 +370,9 @@ export const resizeSingleTextElement = (
     const newWidth = Math.max(minWidth, nextWidth);
 
     const text = wrapText(
-      element.originalText,
+      (element?.customData?.template &&
+        (window as any)?.templateMap?.[element.id]?.content) ||
+        element.originalText, //ymjr
       getFontString(element),
       Math.abs(newWidth),
     );
@@ -894,7 +896,10 @@ export const resizeSingleElement = (
   if (nextHeight < 0) {
     newOrigin.y = newOrigin.y + nextHeight;
   }
-
+  /*ymjr*/ (window as any)?.resizeSingleElementHook?.(
+    latestElement,
+    handleDirection,
+  ); /*ymjr*/
   if ("scale" in latestElement && "scale" in origElement) {
     //zsviczian (shift resize embeddable to scale resize)
     if (isIframeLikeElement(latestElement)) {
@@ -1439,6 +1444,7 @@ export const resizeMultipleElements = (
         (orig.angle * flipFactorX * flipFactorY) as Radians,
       );
 
+      const isCustomSVG = !!orig.customData?.svgPathShape; //ymjr
       const isLinearOrFreeDraw =
         isLinearElement(orig) || isFreeDrawElement(orig);
       const offsetX = orig.x - anchorX;
@@ -1450,8 +1456,8 @@ export const resizeMultipleElements = (
 
       const rescaledPoints = rescalePointsInElement(
         orig,
-        width * flipFactorX,
-        height * flipFactorY,
+        isCustomSVG ? width : width * flipFactorX, //ymjr
+        isCustomSVG ? height : height * flipFactorY, //ymjr
         false,
       );
 
@@ -1463,6 +1469,17 @@ export const resizeMultipleElements = (
         angle,
         ...rescaledPoints,
       };
+
+      if (isCustomSVG) {
+        //ymjr
+        const currentScaleX = orig.customData?.scaleX ?? 1;
+        const currentScaleY = orig.customData?.scaleY ?? 1;
+        (update as any).customData = {
+          ...orig.customData,
+          scaleX: currentScaleX * flipFactorX,
+          scaleY: currentScaleY * flipFactorY,
+        };
+      }
 
       if (isElbowArrow(orig)) {
         // Mirror fixed point binding for elbow arrows

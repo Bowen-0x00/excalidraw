@@ -36,6 +36,25 @@ export const actionSelectAll = register({
           !(isTextElement(element) && element.containerId) &&
           !element.locked,
       )
+      .filter((el) => {
+        //ymjr
+        // !(window as any)?.selectElementsHook || (window as any)?.selectElementsHook(el, null)
+        const core = (window as any).EA_Core;
+        if (core) {
+          const context = {
+            element: el,
+            elementsMap: app.scene.getNonDeletedElementsMap(),
+            shouldSelect: true,
+          };
+          const isIntercepted = core.dispatchSync(
+            "shouldSelectElement",
+            context,
+            false,
+          );
+          return context.shouldSelect;
+        }
+        return true;
+      }) //ymjr
       .reduce((map: Record<ExcalidrawElement["id"], true>, element) => {
         map[element.id] = true;
         return map;

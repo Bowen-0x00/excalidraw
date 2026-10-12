@@ -126,6 +126,9 @@ export const getFontFamilyString = ({
 }: {
   fontFamily: FontFamilyValues;
 }) => {
+  if (typeof fontFamily == "string") {
+    return fontFamily; //ymjr
+  }
   for (const [fontFamilyString, id] of Object.entries(FONT_FAMILY)) {
     if (id === fontFamily) {
       return `${fontFamilyString}${getFontFamilyFallbacks(id)

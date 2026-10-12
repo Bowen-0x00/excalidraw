@@ -131,6 +131,13 @@ export const duplicateElement = <TElement extends ExcalidrawElement>(
       return groupIdMapForOperation.get(groupId)!;
     },
   );
+  /*ymjr*/ (window as any)?.duplicateElementHook?.(
+    editingGroupId,
+    groupIdMapForOperation,
+    element,
+    null,
+    copy,
+  ); /*ymjr*/
   return copy;
 };
 

@@ -12,11 +12,8 @@ type StackProps = {
   style?: React.CSSProperties;
 };
 
-const RowStack = forwardRef(
-  (
-    { children, gap, align, justifyContent, className, style }: StackProps,
-    ref: React.ForwardedRef<HTMLDivElement>,
-  ) => {
+const RowStack = forwardRef<HTMLDivElement, StackProps>( //ymjr
+  ({ children, gap, align, justifyContent, className, style }, ref) => {
     return (
       <div
         className={clsx("Stack Stack_horizontal", className)}
@@ -34,11 +31,8 @@ const RowStack = forwardRef(
   },
 );
 
-const ColStack = forwardRef(
-  (
-    { children, gap, align, justifyContent, className, style }: StackProps,
-    ref: React.ForwardedRef<HTMLDivElement>,
-  ) => {
+const ColStack = forwardRef<HTMLDivElement, StackProps>( //ymjr
+  ({ children, gap, align, justifyContent, className, style }, ref) => {
     return (
       <div
         className={clsx("Stack Stack_vertical", className)}

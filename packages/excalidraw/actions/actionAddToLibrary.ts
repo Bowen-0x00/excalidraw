@@ -10,7 +10,8 @@ import { register } from "./register";
 export const actionAddToLibrary = register({
   name: "addToLibrary",
   trackEvent: { category: "element" },
-  perform: (elements, appState, _, app) => {
+  perform: async (elements, appState, _, app) => {
+    //ymjr
     const selectedElements = app.scene.getSelectedElements({
       selectedElementIds: appState.selectedElementIds,
       includeBoundTextElement: true,
@@ -29,37 +30,52 @@ export const actionAddToLibrary = register({
       }
     }
 
-    return app.library
-      .getLatestLibrary()
-      .then((items) => {
-        return app.library.setLibrary([
-          {
-            id: randomId(),
-            status: "unpublished",
-            elements: selectedElements.map(deepCopyElement),
-            created: Date.now(),
-          },
-          ...items,
-        ]);
-      })
-      .then(() => {
-        return {
-          captureUpdate: CaptureUpdateAction.EVENTUALLY,
-          appState: {
-            ...appState,
-            toast: { message: t("toast.addedToLibrary") },
-          },
-        };
-      })
-      .catch((error) => {
-        return {
-          captureUpdate: CaptureUpdateAction.EVENTUALLY,
-          appState: {
-            ...appState,
-            errorMessage: error.message,
-          },
-        };
-      });
+    //ymjr+++>>>
+    try {
+      const items = await app.library.getLatestLibrary();
+      const newElements = selectedElements.map(deepCopyElement);
+      let itemName = "";
+
+      const core = (window as any).EA_Core;
+      if (core) {
+        const context = { newElements, app, items, name: itemName };
+        const isIntercepted = await core.dispatchAsync(
+          "onBeforeAddToLibrary",
+          context,
+          true,
+        );
+        if (isIntercepted) return false;
+        itemName = context.name || "";
+      }
+
+      await app.library.setLibrary([
+        {
+          id: randomId(),
+          status: "unpublished",
+          elements: newElements,
+          created: Date.now(),
+          name: itemName, //ymjr
+        },
+        ...items,
+      ]);
+
+      return {
+        captureUpdate: CaptureUpdateAction.EVENTUALLY,
+        appState: {
+          ...appState,
+          toast: { message: t("toast.addedToLibrary") },
+        },
+      };
+    } catch (error: any) {
+      return {
+        captureUpdate: CaptureUpdateAction.EVENTUALLY,
+        appState: {
+          ...appState,
+          errorMessage: error.message,
+        },
+      };
+    }
+    //ymjr<<<+++
   },
   label: "labels.addToLibrary",
 });
