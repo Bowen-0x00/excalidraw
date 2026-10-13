@@ -17,9 +17,11 @@ import {
   getLineHeight,
   DEFAULT_STICKY_NOTE_SIZE,
   isTransparent,
+  DEFAULT_ZOOM,
 } from "@excalidraw/common";
 
 import type { MarkOptional } from "@excalidraw/common/utility-types";
+import type { Zoom } from "@excalidraw/excalidraw/types";
 
 import { bindBindingElement } from "./binding";
 import {
@@ -304,6 +306,7 @@ const bindLinearElementToElement = (
   end: ValidLinearElement["end"],
   elementStore: ElementStore,
   scene: Scene,
+  zoom: Zoom,
 ): {
   linearElement: ExcalidrawLinearElement;
   startBoundElement?: ExcalidrawElement;
@@ -392,6 +395,7 @@ const bindLinearElementToElement = (
         "orbit",
         "start",
         scene,
+        zoom,
       );
     }
   }
@@ -469,6 +473,7 @@ const bindLinearElementToElement = (
         "orbit",
         "end",
         scene,
+        zoom,
       );
     }
   }
@@ -786,6 +791,7 @@ export const convertToExcalidrawElements = (
                 originalEnd,
                 elementStore,
                 scene,
+                DEFAULT_ZOOM,
               );
             container = linearElement;
             elementStore.add(linearElement);
@@ -811,6 +817,7 @@ export const convertToExcalidrawElements = (
                   end,
                   elementStore,
                   scene,
+                  DEFAULT_ZOOM,
                 );
 
               elementStore.add(linearElement);

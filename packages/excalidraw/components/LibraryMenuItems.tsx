@@ -6,7 +6,12 @@ import React, {
   useState,
 } from "react";
 
-import { MIME_TYPES, arrayToMap, nextAnimationFrame } from "@excalidraw/common";
+import {
+  KEYS,
+  MIME_TYPES,
+  arrayToMap,
+  nextAnimationFrame,
+} from "@excalidraw/common";
 
 import { duplicateElements } from "@excalidraw/element";
 
@@ -333,7 +338,7 @@ export default function LibraryMenuItems({
         )}
       </div>
       {filteredItems.length > 0 ? (
-        <LibraryMenuSectionGrid>
+        <LibraryMenuSectionGrid showNames>
           <LibraryMenuSection
             itemsRenderedPerBatch={itemsRenderedPerBatch}
             items={filteredItems}
@@ -342,6 +347,7 @@ export default function LibraryMenuItems({
             onClick={onItemClick}
             isItemSelected={isItemSelected}
             svgCache={svgCache}
+            showNames
           />
         </LibraryMenuSectionGrid>
       ) : (
@@ -385,6 +391,15 @@ export default function LibraryMenuItems({
             placeholder={t("library.search.inputPlaceholder")}
             value={searchInputValue}
             onChange={(value) => setSearchInputValue(value)}
+            onKeyDown={(event) => {
+              // clear the search ourselves and stop the event, or the
+              // sidebar's Escape listener closes an undocked sidebar
+              if (event.key === KEYS.ESCAPE && searchInputValue) {
+                event.preventDefault();
+                event.stopPropagation();
+                setSearchInputValue("");
+              }
+            }}
           />
         )}
         <LibraryDropdownMenu

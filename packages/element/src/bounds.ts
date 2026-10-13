@@ -855,7 +855,7 @@ export const getArrowheadPoints = (
 
   if (arrowhead === "circle" || arrowhead === "circle_outline") {
     const diameter = Math.hypot(ys - ty, xs - tx) + element.strokeWidth - 2;
-    return [tx, ty, diameter]; //zsviczian
+    return [tx, ty, diameter];
   }
 
   const angle = getArrowheadAngle(arrowhead);
@@ -1291,6 +1291,7 @@ export const elementsOverlappingBBox = <T extends ExcalidrawElement>({
   type,
   excludeElementsInFrames,
   shouldIgnoreElementFromSelection,
+  includeStroke = true,
 }: {
   elements: readonly T[];
   elementsMap?: ElementsMap;
@@ -1302,6 +1303,8 @@ export const elementsOverlappingBBox = <T extends ExcalidrawElement>({
   type: "contain" | "overlap";
   excludeElementsInFrames?: boolean;
   shouldIgnoreElementFromSelection?: (element: T) => boolean;
+  /** whether elements extend by their stroke, as they render */
+  includeStroke?: boolean;
 }) => {
   if (!elementsMap) {
     elementsMap = arrayToMap(elements) as ElementsMap;
@@ -1350,7 +1353,7 @@ export const elementsOverlappingBBox = <T extends ExcalidrawElement>({
       groups[groupId].push(element);
     }
 
-    const strokeWidth = element.strokeWidth;
+    const strokeWidth = includeStroke ? element.strokeWidth : 0;
     let labelAABB: Bounds | null = null;
     let elementAABB = getElementBounds(element, elementsMap);
 

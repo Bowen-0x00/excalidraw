@@ -6,6 +6,7 @@ Before changing this repository, read these files completely:
 
 1. `CONTRIBUTING.md` — fork policy, fingerprinting, Obsidian artifact contract, and cross-repository handoff.
 2. `CLAUDE.md` — upstream monorepo structure and standard commands.
+3. [`dev-docs/Obsidian/README.md`](dev-docs/Obsidian/README.md) — persisted fork inventory, source baselines, maintenance workflow, and decustomization gates. Read the linked catalog entries and contracts for the area being changed.
 
 This file adds agent-specific execution rules. If instructions conflict, preserve the stricter rule and ask before expanding scope.
 
@@ -29,6 +30,27 @@ The sibling plugin repository is usually `../obsidian-excalidraw-plugin`, but ve
 - Do not hand-edit generated `dist/` output or use it as a source fix.
 - Before touching an upstream file, compare the relevant region with `upstream/master` and minimize the resulting fork delta.
 
+## Upstream Merge Protocol
+
+Follow `CONTRIBUTING.md` → **Merging Changes From Upstream** for every upstream merge. A clean auto-merge is part of the review, not proof of preserved behavior.
+
+1. Verify the fork and plugin branches and worktree statuses. Identify the merge base and incoming upstream commit. For each conflict, inspect the base, fork, and upstream versions (`git show :1:path`, `:2:path`, and `:3:path` while unmerged). Also review changed files with no conflict markers.
+2. Inventory every fork difference touched by the incoming change, including unmarked changes. Search the old and new files, callers, exports, tests, styles, and relevant plugin code. Record each difference's purpose, current consumer, and required behavior before editing.
+3. For an upstream move or extraction, adopt the upstream structure and keep unchanged upstream code verbatim where possible. Relocate only the still-needed customization to its new owner. Preserve hook arguments, event ordering, persistence, and document/window scope. A larger cohesive Obsidian-specific block belongs in a dedicated function or fork-owned helper with a narrow call from upstream code.
+4. Retire a fork difference only when the incoming upstream implementation demonstrably satisfies its original need. Record the evidence and test the affected plugin path. Never discard a difference merely because the conflict looks mechanical, the code is unfamiliar, or an upstream method has a similar name.
+5. Review the staged result against **both** parents, including auto-merged files. Check that every inventoried behavior is accounted for exactly once, the upstream delta is minimal, and no conflict markers or unrelated edits remain.
+6. Run the focused checks, Obsidian artifact build, and cross-repository plugin build described below. Test the affected user workflow in a live vault when that is essential to validate the change. If an essential check is unavailable, leave validation incomplete and report the risk before finalizing the merge; never equate a successful build with zero plugin regression.
+
+Do not mix documentation-policy edits or opportunistic cleanup into an upstream merge unless the maintainer requested them as part of that merge.
+
+## Maintain The Persisted Fork Inventory
+
+[`dev-docs/Obsidian/`](dev-docs/Obsidian/README.md) is the durable inventory, not a one-off audit report. In the same patch as every added, changed, moved, or retired fork customization (including an upstream merge), update the affected stable `OBS-xxx` entries, file ledger, consumer/compatibility evidence, and validation status. Include unmarked changes, tests, types, assets, packaging, and upstream-only paths; fingerprint searches are not a completeness check.
+
+Run the inventory comparison against the explicitly identified upstream snapshot using the commands in its README. Review drift before refreshing hashes; never make an unexplained difference pass by accepting its checksum. If an upstream checkout is unavailable, state that the comparison remains unverified. The inventory checker is not a substitute for source tests, builds, or a live Obsidian check.
+
+A removal candidate is not permission to remove code. Before retirement, document the replacement or proof of inertness, trace plugin and public scripting consumers, preserve saved-scene compatibility, and record the relevant validation. Keep retired IDs and their replacement/history; never reuse an ID. During an upstream extraction, update old and new file ownership together and account for the behavior exactly once. Keep upstream provenance current and do not infer Git ancestry from ZIP filenames or absent files.
+
 ## Fork Fingerprinting
 
 Every fork-specific difference in an upstream-owned file must carry the exact `zsviczian` fingerprint described in `CONTRIBUTING.md`.
@@ -36,12 +58,14 @@ Every fork-specific difference in an upstream-owned file must carry the exact `z
 - TypeScript/JavaScript single line: `// zsviczian -- reason`
 - CSS/SCSS single line: `/* zsviczian -- reason */` or the file's established equivalent
 - Inserted block: `// zsviczian START -- reason` and `// zsviczian END`
+- When the fork disables or replaces upstream logic, comment out that upstream code and enclose it with `// zsviczian START -- reason` and `// zsviczian END` (or `/* ... */ // zsviczian` for inline/single expressions). This does not require retaining code that upstream itself moved or removed; follow the new upstream owner and preserve still-needed fork behavior there. Retire obsolete fork code only with evidence that upstream now meets its original requirement, as described in `CONTRIBUTING.md`.
 - New helper or module: include high-signal documentation explaining purpose, author/fingerprint, references, and why the behavior belongs in the fork.
 
 Prefer the ringfenced files when suitable:
 
 - `packages/common/src/commonObsidianHost.ts`
 - `packages/excalidraw/obsidianUtils.ts`
+- `packages/excalidraw/obsidianText.ts`
 - `packages/excalidraw/obsidianExcalidrawHost.ts`
 - `packages/common/src/commonObsidianUtils.ts`
 - `packages/excalidraw/css/obsidianStylingOverrides.css`
@@ -149,6 +173,7 @@ When changing a menu or popover:
 
 ## Coding And Documentation
 
+- For full desktop/tray layout behavior, use `isFullPanelMode(app)` from `obsidianUtils.ts`; a `"full"`-only check excludes the tray. Include compact/tablet explicitly when supported, and test shortcut availability separately in mobile layout.
 - Follow upstream TypeScript, React, Sass, import, and formatting conventions in the touched area.
 - Use TSDoc/high-signal comments for exported APIs, new fork helpers, package-loading logic, and non-obvious compatibility workarounds.
 - Preserve public Excalidraw exports, serialized scene compatibility, and independently consumed host adapter contracts. Apply the coordinated internal-protocol rule above to the paired Obsidian host adapters.

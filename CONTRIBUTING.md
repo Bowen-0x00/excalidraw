@@ -9,6 +9,7 @@ Before opening a pull request, please understand that this repository is **not t
 - Use Node.js 22 or newer. Verify `node --version` before diagnosing Yarn or Corepack failures; a shell that combines a different Node binary with another installation's Corepack can fail before a repository command starts.
 - This monorepo uses Yarn. Do not run npm install commands here or replace `yarn.lock` with an npm lockfile.
 - Read `CLAUDE.md` for the upstream monorepo layout and commands.
+- Read the [persisted Obsidian fork inventory](dev-docs/Obsidian/README.md) and the catalog/contracts relevant to your change before editing.
 - The main consumer for fork-only behavior is the sibling `zsviczian/obsidian-excalidraw-plugin` repository. Treat the repositories as separate Git histories and check the branch, status, and diff in each one before building or handing off changes.
 
 ## First: Can This Be Added Upstream?
@@ -46,6 +47,33 @@ To keep the project maintainable:
 
 When evaluating a PR, maintainability during future upstream merges is often a more important consideration than the benefit of the proposed feature.
 
+## Merging Changes From Upstream
+
+Upstream synchronization is a behavior-preservation task, including changes that Git merges without a conflict. Treat every fork difference in the affected area as intentional until its original reason and current plugin use are understood. A passing merge or build does not establish that Obsidian behavior was preserved.
+
+Before resolving conflicts, compare the fork, the merge base, and incoming upstream code. Inspect moved and deleted files, not only conflict markers. Search for `zsviczian` fingerprints **and** unmarked fork differences, then trace their callers in this repository and in `obsidian-excalidraw-plugin`. For each affected customization, record in the merge or PR notes:
+
+1. Its previous location, purpose, and plugin workflow or compatibility constraint.
+2. The upstream change and the new owner of that behavior, including any changed call path or lifecycle point.
+3. Whether upstream now satisfies the same requirement; cite the code and verification that justify retiring a fork difference.
+4. Where a still-needed customization moved, or why it remains in place, and how it was tested.
+
+When upstream extracts code into a new component or module, start with the upstream extraction. Keep unchanged upstream code verbatim where possible; do not rewrite or reformat adjacent code to make the conflict easier. Migrate each still-needed fork difference to the corresponding new location. Keep call order, data passed to hooks, event timing, persistence behavior, and document/window ownership intact. A mechanical-looking move is not evidence of equivalent behavior. Do not resolve a conflict by taking one whole side, deleting a customized block, or copying the old implementation back wholesale without the inventory above.
+
+Keep the resulting difference from upstream as small as possible. A short customization can stay next to its integration point. Move a cohesive larger Obsidian-specific solution into a dedicated function or fork-owned helper module, leaving a small, fingerprinted call in the upstream-owned file. Avoid unrelated cleanup, formatting, or redesign during the merge.
+
+Review the **combined result** against both merge parents before completion, including cleanly auto-merged files. Verify that each inventoried customization appears exactly where it is needed and that every remaining change to upstream code has a specific reason. Retired differences need an evidenced upstream replacement. Run focused source checks and build the Obsidian artifact and consuming plugin. Exercise the affected workflow in Obsidian, with main-window, popout, offline, and physical mobile checks when that behavior depends on them. If an essential runtime check or test lane is unavailable, leave validation explicitly incomplete and report the risk before finalizing the merge; do not claim a regression-free or release-ready result from builds alone.
+
+## Maintain The Obsidian Fork Inventory
+
+The authoritative fork-specific inventory lives in [`dev-docs/Obsidian/`](dev-docs/Obsidian/README.md). Maintain it in the **same pull request** as the implementation, including when upstream code moves, a clean auto-merge changes a customized path, or a difference disappears.
+
+For each affected stable `OBS-xxx` entry, record the behavior and why it must remain in the component, its current source and plugin consumers, public/serialized compatibility, the upstream alternative considered, and verification performed or still missing. Update `file-inventory.json` for every added, changed, moved, or removed differing path and regenerate `file-inventory.md`. Include tests, declarations, styles, packaging, binary assets, and unmarked differences; do not inventory only `zsviczian` comments.
+
+Follow the README's comparison/report workflow against a named upstream baseline. Review the observed changes before copying new fingerprints into the ledger. Update baseline provenance after upstream synchronization, and report an unavailable upstream comparison rather than claiming coverage. The checker proves file accounting only; the existing source, build, cross-repository, and runtime gates still apply.
+
+Review the [decustomization backlog](dev-docs/Obsidian/decustomization.md) when touching a candidate. Retire a customization only with evidence of equivalent upstream/host behavior or demonstrable inertness, a public-API and saved-data compatibility assessment, and appropriate tests. Absence of a current plugin call is not proof that a public scripting API is unused. Retain the stable ID as a retired record with its replacement, review reference, and validation; remove obsolete active file rows only after accounting for the behavior. Do not keep duplicate historical implementations merely to preserve an inventory entry.
+
 ## Document Every Modification
 
 Every fork-specific change must be easy to find during a future upstream merge. Use the exact `zsviczian` fingerprint even when another contributor or agent authors the patch.
@@ -75,6 +103,8 @@ Instead:
 1. Create a dedicated function.
 2. Prefer placing an Obsidian-specific utility in the existing lowerCamelCase `obsidianUtils.ts` or `commonObsidianUtils.ts` module when appropriate.
 3. Keep Obsidian-specific logic isolated from Excalidraw logic.
+
+When an upstream extraction reveals a substantial existing customization, a focused fork-owned helper such as `obsidianText.ts` is appropriate. Preserve the behavior while minimizing edits to the new upstream-owned file; do not use the extraction as an occasion for unrelated refactoring.
 
 The utility modules consume the typed host boundary; they are not a place to store or discover the plugin. New host capabilities belong in the narrow adapter contracts described below.
 
@@ -134,6 +164,19 @@ The marker should explain:
 * Relevant issue, PR, discussion, or reference links
 
 This makes future merge conflicts substantially easier to understand and resolve.
+
+## Never Delete Upstream Code For A Fork Override
+
+Do not delete upstream Excalidraw code blocks merely to implement a fork override. Deleting upstream code this way makes future synchronization difficult.
+
+Instead:
+
+* Comment out upstream code that the fork intentionally disables or replaces.
+* Wrap the disabled block in `// zsviczian START -- reason` and `// zsviczian END` (or `/* ... */ // zsviczian` for inline/single expressions).
+* Provide a clear explanation and fingerprint for why the code is commented out or disabled.
+* Solutions that silently delete upstream logic for a fork override will be rejected.
+
+This rule does not require retaining code in an old file when **upstream itself** removes, moves, or extracts it. Follow the upstream move and preserve the required fork behavior at its new owner. If upstream now provides an equivalent standard solution, retire the obsolete fork code only after documenting that equivalence and validating the plugin workflow. Do not leave duplicate or dead historical implementations just to satisfy this rule.
 
 ## Typed Obsidian Host Boundary
 
@@ -250,6 +293,7 @@ When opening a PR, please explain:
 2. Why the change is required for the Obsidian plugin.
 3. Why the implementation was kept as small as possible.
 4. What alternatives were considered.
+5. Which `OBS-xxx` inventory entries and file-ledger rows changed, which baseline was compared, and what remains unverified (including retirement evidence where applicable).
 
 PRs that introduce broad modifications to Excalidraw internals without strong justification are unlikely to be accepted.
 

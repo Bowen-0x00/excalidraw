@@ -5,7 +5,7 @@
 This repository is a customized fork of [`@zsviczian/excalidraw`](https://github.com/zsviczian/excalidraw), which in turn is a fork of upstream [`excalidraw/excalidraw`](https://github.com/excalidraw/excalidraw) maintained for Obsidian integration. This fork houses the component modifications required by [`obsidian-excalidraw-plugin-ymjr`](https://github.com/Bowen-0x00/obsidian-excalidraw-plugin-ymjr).
 
 ### 1.1 Branch & Commit Baseline
-- **Upstream Component Base**: Commit `a2fd6348700f5241e73aac55f284e4109a29d556` on `@zsviczian/excalidraw`.
+- **Upstream Component Base**: Commit `b965b9f72227b9a0be31a6a74e4d477cea2c2a90` (`@zsviczian/excalidraw@0.18.143`, paired with `zsviczian/obsidian-excalidraw-plugin` release `2.29.0` tag commit `4acaf9e375e1dfb731faec9c2dd3439bd52cc4cb`; verified via plugin `package.json`, `package-lock.json`, and npm registry `gitHead`).
 - **Target Custom Branch**: `ymjr`.
 - **Attribution & Annotations**:
   - Fork modifications made by `zsviczian` are annotated with `// zsviczian` or `/* zsviczian */`.
@@ -27,7 +27,7 @@ This repository is a customized fork of [`@zsviczian/excalidraw`](https://github
 
 ## 2. Complete Component File Inventory
 
-Every modified or added file in the component repository (~60 files) is categorized below with exact symbols, features, metadata dependencies, and limitations.
+Every modified or added file in the component repository (69 files total) is categorized below with exact symbols, features, metadata dependencies, and limitations.
 
 ### 2.1 Root Configuration Files (4 files)
 
@@ -80,7 +80,7 @@ Every modified or added file in the component repository (~60 files) is categori
 
 ---
 
-### 2.4 Excalidraw Application, Actions & UI (`packages/excalidraw`, 36 files)
+### 2.4 Excalidraw Application, Actions & UI (`packages/excalidraw`, 38 files)
 
 | File | Purpose / Feature | Exact Symbols / Changes | Metadata / Host Dependencies | Attribution |
 |---|---|---|---|---|
@@ -93,7 +93,9 @@ Every modified or added file in the component repository (~60 files) is categori
 | `packages/excalidraw/animatedTrail.ts` | Animated stroke trail styling | `AnimatedTrail.update` | `this.options.stroke` | ymjr |
 | `packages/excalidraw/appState.ts` | Persisted arrowhead size & snap mode state | `getDefaultAppState`, `APP_STATE_STORAGE_CONF` | `currentItemArrowHeadSize`, `currentItemSnap` | ymjr |
 | `packages/excalidraw/components/Actions.tsx` | Mount custom property controls | `SelectedShapeActions` | Mounts roundness value/type, line cap/join, arrowhead size, snap buttons | ymjr |
-| `packages/excalidraw/components/App.tsx` | Imperative API exports, event hooks, hidden element filtering, SVG path cache | `App.getExcalidrawAPI`, `App._svgPathCache`, 18 `EA_Core` event dispatches | `window.EA_Core`, `element.customData.hide`, `ExcalidrawImperativeAPI` (`App`, `ShapeCache`, `elementWithCanvasCache`) | ymjr |
+| `packages/excalidraw/components/App.selectionTool.ts` | Selection filter hook, drag element modification hook, post-transform hook, custom shape/curve arrow deselect guards | `AppSelectionTool.handleSelectionOnPointerDown`, `AppSelectionTool.maybeHandleResize`, `AppSelectionTool.handleSelectionDragOnPointerMove`, `AppSelectionTool.handleSelectionOnPointerUp` | `window.EA_Core` (`shouldSelectElement`, `afterTransformElements`, `modifyElementsToDrag`), `element.customData.svgPathShape`, `element.customData.curveArrow` | ymjr |
+| `packages/excalidraw/components/App.text.ts` | WYSIWYG live change hook, editor startup hook, pre-edit interception & alignment overrides | `AppText.handleTextWysiwyg`, `AppText.startTextEditing` | `window.EA_Core` (`onTextWysiwygChange`, `handleTextWysiwyg`, `beforeStartTextEditing`) | ymjr |
+| `packages/excalidraw/components/App.tsx` | Imperative API exports, event hooks, hidden element filtering, SVG path cache, compatibility delegates | `App.getExcalidrawAPI`, `App._svgPathCache`, 12 `EA_Core` event dispatches, `App.startTextEditing`/`handleTextWysiwyg`/`pasteFromClipboard` delegates | `window.EA_Core`, `element.customData.hide`, `ExcalidrawImperativeAPI` (`App`, `ShapeCache`, `elementWithCanvasCache`) | ymjr |
 | `packages/excalidraw/components/App.viewport.ts` | Viewport translation legacy hook | `AppViewport.translate` | `window.translateCanvas_Hook(state)` | ymjr |
 | `packages/excalidraw/components/App.wheel.ts` | Wheel zoom event interception | `AppWheel.zoomBy` | `window.EA_Core.dispatchSync("handleWheelZoom", context)` | ymjr |
 | `packages/excalidraw/components/ColorPicker/PickerColorList.tsx` | Group headers, spacer squares, color label fallback | `PickerColorList` | `__group__*`, `__spacer__*` | ymjr |
@@ -288,7 +290,7 @@ The component exposes **49 distinct hook events** through `window.EA_Core` to fa
 | `drawElementFromCanvas` | Sync | `element/src/renderElement.ts` | `drawElementFromCanvas` | If returns true, intercepts cached canvas blitting. |
 | `renderElementBefore` | Sync | `element/src/renderElement.ts` | `drawElement` | If returns true, bypasses default element rendering. |
 | `renderElementAfter` | Sync | `element/src/renderElement.ts` | `drawElement` | Fired after element rendering completes. |
-| `shouldSelectElement` | Sync | `element/src/selection.ts`, `excalidraw/components/App.tsx`, `actions/actionSelectAll.ts` | Selection filtering | Sets `context.shouldSelect` (boolean) to filter element selection. |
+| `shouldSelectElement` | Sync | `element/src/selection.ts`, `excalidraw/components/App.selectionTool.ts`, `actions/actionSelectAll.ts` | Selection filtering | Sets `context.shouldSelect` (boolean) to filter element selection. |
 | `generateRoughOptions` | Sync | `element/src/shape.ts` | `generateRoughOptions` | Allows host to mutate Rough.js rendering options. |
 | `beforeWrapText` | Sync | `element/src/textElement.ts` | `redrawTextBoundingBox`, `handleBindTextResize` | Passes `{ textElement, text, indent }` before text wrapping. |
 | `afterMeasureTextBoundingBox` | Sync | `element/src/textElement.ts` | `redrawTextBoundingBox`, `handleBindTextResize` | Dispatches measured text metrics to host engine. |
@@ -305,19 +307,19 @@ The component exposes **49 distinct hook events** through `window.EA_Core` to fa
 | `updateScene` | Sync | `excalidraw/components/App.tsx` | `App.updateScene` | Fired during scene state updates. |
 | `onKeyDown` | Sync | `excalidraw/components/App.tsx` | `App.onKeyDown` | If returns true, intercepts keyboard shortcuts. |
 | `onKeyDownArrowKey` | Sync | `excalidraw/components/App.tsx` | `App.onKeyDown` | If returns true, intercepts arrow key element nudging. |
-| `onTextWysiwygChange` | Sync | `excalidraw/components/App.tsx` | `App.setTextWysiwyg` | Intercepts live text updates during WYSIWYG editing. |
-| `handleTextWysiwyg` | Sync | `excalidraw/components/App.tsx` | `App.startTextEditing` | Intercepts WYSIWYG editor initialization. |
+| `onTextWysiwygChange` | Sync | `excalidraw/components/App.text.ts` | `AppText.handleTextWysiwyg` | Intercepts live text updates during WYSIWYG editing. |
+| `handleTextWysiwyg` | Sync | `excalidraw/components/App.text.ts` | `AppText.handleTextWysiwyg` | Intercepts WYSIWYG editor initialization. |
 | `afterGetElementsAtPosition` | Sync | `excalidraw/components/App.tsx` | `App.getElementsAtPosition` | Host can filter or reorder hit-tested elements. |
-| `beforeStartTextEditing` | Sync | `excalidraw/components/App.tsx` | `App.startTextEditing` | If returns true, prevents entering text edit mode. |
+| `beforeStartTextEditing` | Sync | `excalidraw/components/App.text.ts` | `AppText.startTextEditing` | If returns true, prevents entering text edit mode. |
 | `handleCanvasDoubleClick` | Sync | `excalidraw/components/App.tsx` | `App.handleCanvasDoubleClick` | If returns true, intercepts double click handling. |
 | `handleCanvasPointerDown` | Sync | `excalidraw/components/App.tsx` | `App.handleCanvasPointerDown` | If returns true, intercepts canvas pointer down. |
 | `handleCanvasPointerMove` | Sync | `excalidraw/components/App.tsx` | `App.handleCanvasPointerMove` | If returns true, intercepts canvas pointer move. |
 | `handleCanvasPointerUp` | Sync | `excalidraw/components/App.tsx` | `App.handleCanvasPointerUp` | If returns true, intercepts canvas pointer up. |
 | `onPointerUpFromPointerDown` | Sync | `excalidraw/components/App.tsx` | Pointer click handling | Fired on click completion. |
 | `handleLinearElementOnPointerDown` | Sync | `excalidraw/components/App.tsx` | Linear element pointer down | Intercepts pointer down on lines/arrows. |
-| `modifyElementsToDrag` | Sync | `excalidraw/components/App.tsx` | `App.handleCanvasPointerMove` | Allows host to dynamically modify list of elements being dragged. |
+| `modifyElementsToDrag` | Sync | `excalidraw/components/App.selectionTool.ts` | `AppSelectionTool.handleSelectionDragOnPointerMove` | Allows host to dynamically modify list of elements being dragged. |
 | `afterCreateGenericElement` | Sync | `excalidraw/components/App.tsx` | Element creation | Dispatched immediately after creating a new generic element. |
-| `afterTransformElements` | Sync | `excalidraw/components/App.tsx` | Element transformation | Dispatched after resizing or rotating elements. |
+| `afterTransformElements` | Sync | `excalidraw/components/App.selectionTool.ts` | `AppSelectionTool.maybeHandleResize` | Dispatched after resizing or rotating elements. |
 | `handleWheelZoom` | Sync | `excalidraw/components/App.wheel.ts` | `AppWheel.zoomBy` | Dispatches wheel event, zoom level, and viewport position. |
 | `onLibraryUnitCheck` | Sync | `excalidraw/components/LibraryUnit.tsx` | `LibraryUnit` mount | Sets `syncContext.isMissingFiles: true` if library item requires files. |
 | `onLibraryUnitHydrate` | Async | `excalidraw/components/LibraryUnit.tsx` | `LibraryUnit` mount | Triggers on-demand binary file loading for library items. |
@@ -409,3 +411,18 @@ Execute the following verification matrix before certifying builds:
 | **Mobile: Touch Drag & Keyboard WYSIWYG** | 1. Open drawing on iOS / Android mobile client.<br>2. Drag elements and resize using touch.<br>3. Double-tap to enter text editing.<br>4. Trigger emoji suggester. | Cardinal handles responsive to touch; soft keyboard does not prematurely blur text editor; emoji suggester click preserved. | Mobile blur event prematurely submitting text; devicePixelRatio miscalculating canvas coordinates. |
 | **Canvas Extreme Zoom & Pan** | 1. Zoom out beyond standard limit down to `0.03`.<br>2. Pan across large canvas with fixed elements present. | Canvas remains responsive down to 3% zoom; fixed elements remain visible in viewport; no rendering freeze. | Viewport culling incorrectly dropping fixed elements; zoom constraints clamping early. |
 | **Library Lazy Hydration** | 1. Insert library items containing vault image files.<br>2. Close vault and reopen offline. | Skeleton preview displays until `onLibraryUnitHydrate` resolves; image previews render from cache. | Crash on missing local image files; blank library unit icons. |
+
+---
+
+## 6. Release 2.29.0 (`@zsviczian/excalidraw@0.18.143`) Sync & Line Snapshot
+
+- **Paired Plugin Release**: [`2.29.0`](https://github.com/zsviczian/obsidian-excalidraw-plugin/releases/tag/2.29.0) (tag/commit `4acaf9e375e1dfb731faec9c2dd3439bd52cc4cb`).
+- **Upstream Component Target**: `@zsviczian/excalidraw@0.18.143` (commit `b965b9f72227b9a0be31a6a74e4d477cea2c2a90`, verified via plugin `package.json`, `package-lock.json` integrity `sha512-ElZG+PmNM1AL4JVp6sPoLkf9xZ9zbUiTjgWBT8EBtPcRSWx6zQV9BRXD5XSG9k0d+GFpUyypltxkoKhHDDK3IQ==`, and npm registry `gitHead`).
+- **Conflict & Structural Adaptation Log**:
+  - `packages/common/src/constants.ts` (`L371-372`): Retained `MIN_ZOOM = 0.03` and `MAX_ZOOM = 30.0` alongside upstream's new `DEFAULT_ZOOM`.
+  - `packages/element/src/newElement.ts` (`L143-145, L586, L591-596, L609-617, L622`): Integrated upstream `maxWidth` auto-wrap in `refreshTextDimensions` while preserving `customData.template` substitution and `customData.indent` forwarding.
+  - `packages/excalidraw/components/App.tsx`, `App.text.ts`, and `App.selectionTool.ts`: Upstream extracted clipboard, text, and selection-tool sub-controllers out of `App.tsx`. Ported `onTextWysiwygChange`, `handleTextWysiwyg`, and `beforeStartTextEditing` hooks into `App.text.ts` (`L315-343, L458-464, L754-785, L839-854, L921-923`), and ported `shouldSelectElement`, `afterTransformElements`, `modifyElementsToDrag`, and `svgPathShape`/`curveArrow` deselect guards into `App.selectionTool.ts` (`L355-369, L391-392, L733-743, L1023-1050, L1468-1469`). Added compatibility delegates on `App` (`L712-721`) and re-imported `getElementAbsoluteCoords` (`L205`) for `hitDetailElement` hit testing.
+  - `packages/excalidraw/components/FontPicker/FontPicker.tsx` (`L62-63, L90, L94-96, L115, L236`): Used `isDefaultFont(fontFamily)` in `needsGlyphSample` (`L115`) to support `number | string` `FontFamilyValues`.
+  - `packages/excalidraw/components/LibraryUnit.tsx` (`L43-74, L85-86, L93`): Combined `shouldShowSkeleton` (`!svg || syncContext.isMissingFiles`) with upstream's `"library-unit--named": showName`.
+  - `packages/excalidraw/package.json` (`L108-109`): Preserved `"gifuct-js": "^2.1.2"` in `dependencies` while keeping `"sass": "1.51.0"` in `devDependencies`.
+  - `packages/excalidraw/wysiwyg/textWysiwyg.tsx` (`L81, L421-422, L440-441, L544-546, L847-852, L1151-1157, L1345`): Combined `.emoji-suggester:hover` blur guard with upstream's `editable.focus({ preventScroll: true })` and `editorBox!.appendChild(editable)`.
