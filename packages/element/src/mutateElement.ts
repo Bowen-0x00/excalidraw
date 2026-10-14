@@ -12,8 +12,8 @@ import { ShapeCache } from "./shape";
 
 import { updateElbowArrowPoints } from "./elbowArrow";
 
-import { isElbowArrow } from "./typeChecks";
-
+import { isElbowArrow, isLinearElement } from "./typeChecks";
+import { sceneCrossings } from "./crossings";
 import type {
   ElementsMap,
   ExcalidrawElbowArrowElement,
@@ -137,6 +137,16 @@ export const mutateElement = <TElement extends Mutable<ExcalidrawElement>>(
     typeof points !== "undefined"
   ) {
     ShapeCache.delete(element);
+  }
+  if (
+    isLinearElement(element) &&
+    (typeof updates.x !== "undefined" ||
+      typeof updates.y !== "undefined" ||
+      typeof points !== "undefined" ||
+      typeof updates.width !== "undefined" ||
+      typeof updates.height !== "undefined")
+  ) {
+    sceneCrossings.invalidateElement(element.id, elementsMap);
   }
 
   element.version = updates.version ?? element.version + 1;

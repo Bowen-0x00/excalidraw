@@ -493,7 +493,7 @@ const renderElementToSvg = async (
       }
       group.setAttribute("stroke-linecap", "round");
 
-      const shapes = ShapeCache.generateElementShape(element, renderConfig);
+      const shapes = ShapeCache.generateElementShape(element, renderConfig, elementsMap);
       shapes.forEach((shape) => {
         const node = roughSVGDrawWithPrecision(
           rsvg,

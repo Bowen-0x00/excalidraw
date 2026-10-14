@@ -77,6 +77,12 @@ import type {
   Arrowhead,
 } from "./types";
 
+import {
+  sceneCrossings,
+  generateElbowArrowShapeWithCrossings,
+  buildLinearPathWithCrossings,
+  type LineCrossingMode,
+} from "./crossings";
 import type { Drawable, Options } from "roughjs/bin/core";
 import type { Point as RoughPoint } from "roughjs/bin/geometry";
 
@@ -132,13 +138,23 @@ export class ShapeCache {
       canvasBackgroundColor: AppState["viewBackgroundColor"];
       embedsValidationStatus: EmbedsValidationStatus;
       theme: AppState["theme"];
+      elementsMap?: ElementsMap;
     } | null,
+    elementsMap?: ElementsMap,
   ) => {
-    // when exporting, always regenerated to guarantee the latest shape
-    const cachedShape = renderConfig?.isExporting
-      ? undefined
-      : ShapeCache.get(element, renderConfig ? renderConfig.theme : null);
+    const hasLineCrossings =
+      (element.type === "line" || element.type === "arrow") &&
+      Boolean(
+        element.customData &&
+          "lineCrossings" in element.customData &&
+          element.customData.lineCrossings !== "none",
+      );
 
+    // when exporting or when crossings need dynamic scene context, regenerate
+    const cachedShape =
+      renderConfig?.isExporting || (hasLineCrossings && (elementsMap || renderConfig?.elementsMap))
+        ? undefined
+        : ShapeCache.get(element, renderConfig ? renderConfig.theme : null);
     // `null` indicates no rc shape applicable for this element type,
     // but it's considered a valid cache value (= do not regenerate)
     if (cachedShape !== undefined) {
@@ -147,14 +163,16 @@ export class ShapeCache {
 
     elementWithCanvasCache.delete(element);
 
+    const activeElementsMap = elementsMap || renderConfig?.elementsMap;
     const shape = _generateElementShape(
       element,
       ShapeCache.rg,
-      renderConfig || {
-        isExporting: false,
-        canvasBackgroundColor: COLOR_PALETTE.white,
-        embedsValidationStatus: null,
-        theme: THEME.LIGHT,
+      {
+        isExporting: renderConfig?.isExporting || false,
+        canvasBackgroundColor: renderConfig?.canvasBackgroundColor || COLOR_PALETTE.white,
+        embedsValidationStatus: renderConfig?.embedsValidationStatus || null,
+        theme: renderConfig?.theme || THEME.LIGHT,
+        elementsMap: activeElementsMap,
       },
     ) as T["type"] extends keyof ElementShapes
       ? ElementShapes[T["type"]]
@@ -877,11 +895,13 @@ const _generateElementShape = (
     canvasBackgroundColor,
     embedsValidationStatus,
     theme,
+    elementsMap,
   }: {
     isExporting: boolean;
     canvasBackgroundColor: string;
     embedsValidationStatus: EmbedsValidationStatus | null;
     theme?: AppState["theme"];
+    elementsMap?: ElementsMap;
   },
 ): ElementShape => {
   const isDarkMode = theme === THEME.DARK;
@@ -1031,6 +1051,15 @@ const _generateElementShape = (
       const points = element.points.length
         ? element.points
         : [pointFrom<LocalPoint>(0, 0)];
+      const crossingMode: LineCrossingMode =
+        (element.customData?.lineCrossings as LineCrossingMode) || "none";
+      const crossings =
+        elementsMap && crossingMode !== "none"
+          ? sceneCrossings.getCrossings(
+              element as ExcalidrawLinearElement,
+              elementsMap,
+            )
+          : [];
       if (element.type === "arrow" && element.customData?.curveArrow) {
         const p0 = points[0];
         const p3 = points[points.length - 1]; // Endpoint
@@ -1418,6 +1447,7 @@ const _generateElementShape = (
 
         return shape;
       } else if (isElbowArrow(element)) {
+
         // NOTE (mtolmacs): Temporary fix for extremely big arrow shapes
         if (
           !points.every(
@@ -1431,16 +1461,47 @@ const _generateElementShape = (
           );
           shape = [];
         } else {
+          const elbowCrossingPath =
+            crossings.length > 0
+              ? generateElbowArrowShapeWithCrossings(
+                  points,
+                  element.roundness?.value ?? 16,
+                  crossings,
+                  crossingMode,
+                )
+              : "";
+
           shape = [
             generator.path(
-              generateElbowArrowShape(points, element.roundness?.value ?? 16), //ymjr
+              elbowCrossingPath ||
+                generateElbowArrowShape(points, element.roundness?.value ?? 16),
               generateRoughOptions(element, true, isDarkMode),
             ),
           ];
         }
+      } else if (crossings.length > 0) {
+        // ymjr: Linear element with crossings (jump arc or gap break), even with default roundness
+        const linearCrossingPath = buildLinearPathWithCrossings(
+          points,
+          crossings,
+          crossingMode,
+        );
+
+        if (linearCrossingPath) {
+          shape = [
+            generator.path(
+              linearCrossingPath,
+              generateRoughOptions(element, false, isDarkMode),
+            ),
+          ];
+        } else if (!element.roundness) {
+          shape = options.fill
+            ? [generator.polygon(points as unknown as RoughPoint[], options)]
+            : [generator.linearPath(points as unknown as RoughPoint[], options)];
+        } else {
+          shape = [generator.curve(points as unknown as RoughPoint[], options)];
+        }
       } else if (!element.roundness) {
-        // curve is always the first element
-        // this simplifies finding the curve for an element
         if (options.fill) {
           shape = [
             generator.polygon(points as unknown as RoughPoint[], options),

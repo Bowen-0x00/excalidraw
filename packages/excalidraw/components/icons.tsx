@@ -3083,3 +3083,42 @@ export const settingsIcon = createIcon(
   </g>,
   tablerIconProps,
 );
+
+// ymjr: Line crossing styles (Visio-like line jump, gap, dot)
+export const lineCrossingNoneIcon = createIcon(
+  <g>
+    <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+    <path d="M4 12h16" />
+    <path d="M12 4v16" />
+  </g>,
+  tablerIconProps,
+);
+
+export const lineCrossingArcIcon = createIcon(
+  <g>
+    <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+    <path d="M12 4v16" />
+    <path d="M4 12h5a3 3 0 0 1 6 0h5" />
+  </g>,
+  tablerIconProps,
+);
+
+export const lineCrossingGapIcon = createIcon(
+  <g>
+    <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+    <path d="M12 4v16" />
+    <path d="M4 12h5" />
+    <path d="M15 12h5" />
+  </g>,
+  tablerIconProps,
+);
+
+export const lineCrossingDotIcon = createIcon(
+  <g>
+    <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+    <path d="M4 12h16" />
+    <path d="M12 4v16" />
+    <circle cx="12" cy="12" r="3" fill="currentColor" stroke="none" />
+  </g>,
+  tablerIconProps,
+);

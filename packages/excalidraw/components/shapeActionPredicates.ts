@@ -154,6 +154,7 @@ export const getShapeActionPredicates = (
     arrowType: forToolOrSelection(toolIsArrow),
     arrowheads: forToolOrSelection(canHaveArrowheads),
     frameRole: forToolOrSelection((type) => type === "frame"), //zsviczian
+    lineCrossings: forToolOrSelection((type) => type === "arrow" || type === "line"), //ymjr
 
     // text
     text: activeToolType === "text" || targetElements.some(isTextElement),

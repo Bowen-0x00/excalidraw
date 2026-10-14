@@ -190,6 +190,10 @@ export const SelectedShapeActions = ({
         </>
       )}
 
+      {predicates.lineCrossings && (
+        <>{renderAction("changeLineCrossings") /*ymjr*/}</>
+      )}
+
       {predicates.arrowType && <>{renderAction("changeArrowType")}</>}
 
       {predicates.text && (

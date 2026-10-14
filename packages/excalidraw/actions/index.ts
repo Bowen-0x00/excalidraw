@@ -21,6 +21,7 @@ export {
   actionChangeTextAlign,
   actionChangeVerticalAlign,
   actionChangeArrowProperties,
+  actionChangeLineCrossings, //ymjr
 } from "./actionProperties";
 
 export {

@@ -113,6 +113,7 @@ export type ActionName =
   | "changeStrokeLineCap" //ymjr
   | "changeStrokeLineJoin" //ymjr
   | "changeSnapProp" //ymjr
+  | "changeLineCrossings" //ymjr
   | "alignTop"
   | "alignBottom"
   | "alignLeft"

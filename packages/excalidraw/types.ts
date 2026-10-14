@@ -490,6 +490,7 @@ export interface AppState {
   currentItemArrowType: "sharp" | "round" | "elbow" | "curve"; //ymjr
   currentItemFrameRole: ExcalidrawFrameLikeElement["frameRole"] | null; //zsviczian
   currentItemSnap: string; //ymjr
+  currentItemLineCrossings: "none" | "arc" | "gap" | "dot"; //ymjr
   viewBackgroundColor: string;
   scrollX: number;
   scrollY: number;

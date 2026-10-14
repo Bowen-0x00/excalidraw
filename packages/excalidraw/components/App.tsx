@@ -9800,6 +9800,17 @@ class App extends React.Component<AppProps, AppState> {
         //@ts-ignore
         element.customData = { ...element.customData, curveArrow: true };
       }
+      if (
+        this.state.currentItemLineCrossings &&
+        this.state.currentItemLineCrossings !== "none"
+      ) {
+        //ymjr
+        //@ts-ignore
+        element.customData = {
+          ...element.customData,
+          lineCrossings: this.state.currentItemLineCrossings,
+        };
+      }
       const point = pointFrom<GlobalPoint>(
         pointerDownState.origin.x,
         pointerDownState.origin.y,

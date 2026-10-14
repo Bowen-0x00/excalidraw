@@ -74,6 +74,7 @@ import { getContainingFrame } from "./frame";
 import { getCornerRadius } from "./utils";
 
 import { ShapeCache } from "./shape";
+import { sceneCrossings } from "./crossings";
 import {
   getStickyNoteFooter,
   getStickyNotePathCommands,
@@ -90,6 +91,7 @@ import type {
   ExcalidrawTextElementWithContainer,
   NonDeletedSceneElementsMap,
   ElementsMap,
+  ExcalidrawLinearElement,
 } from "./types";
 
 import type { RoughCanvas } from "roughjs/bin/canvas";
@@ -335,7 +337,7 @@ const generateElementCanvas = (
 
   const rc = rough.canvas(canvas);
 
-  drawElementOnCanvas(element, rc, context, renderConfig);
+  drawElementOnCanvas(element, rc, context, renderConfig, elementsMap);
 
   context.restore();
 
@@ -448,6 +450,7 @@ const drawElementOnCanvas = (
   rc: RoughCanvas,
   context: CanvasRenderingContext2D,
   renderConfig: StaticCanvasRenderConfig,
+  elementsMap?: ElementsMap,
 ) => {
   //   if (window.drawElementOnCanvasHook(element, context, renderConfig, rc)) {
   //     return;
@@ -523,11 +526,34 @@ const drawElementOnCanvas = (
       context.lineJoin = element?.customData?.strokeLineJoin ?? "round"; //ymjr
       context.lineCap = element?.customData?.strokeLineCap ?? "round"; //ymjr
 
-      ShapeCache.generateElementShape(element, renderConfig).forEach(
+      ShapeCache.generateElementShape(element, renderConfig, elementsMap).forEach(
         (shape) => {
           rc.draw(shape);
         },
       );
+
+      // ymjr: Render junction dots for connected crossings or dot mode
+      if (elementsMap) {
+        const crossings = sceneCrossings.getCrossings(
+          element as ExcalidrawLinearElement,
+          elementsMap,
+        );
+        const crossingMode = element?.customData?.lineCrossings;
+        for (const c of crossings) {
+          if (crossingMode === "dot" || c.crossingType === "t-junction") {
+            const dotR = Math.max(4, element.strokeWidth * 2);
+            context.save();
+            context.fillStyle = applyDarkModeFilter(
+              element.strokeColor,
+              renderConfig.theme === THEME.DARK,
+            );
+            context.beginPath();
+            context.arc(c.localPoint[0], c.localPoint[1], dotR, 0, Math.PI * 2);
+            context.fill();
+            context.restore();
+          }
+        }
+      }
       break;
     }
     case "freedraw": {
@@ -805,10 +831,18 @@ const generateElementWithCanvas = (
 
   const containingFrameOpacity =
     getContainingFrame(element, elementsMap)?.opacity || 100;
+  const hasLineCrossings =
+    (element.type === "line" || element.type === "arrow") &&
+    Boolean(
+      element.customData &&
+        "lineCrossings" in element.customData &&
+        element.customData.lineCrossings !== "none",
+    );
 
   if (
     !prevElementWithCanvas ||
     shouldRegenerateBecauseZoom ||
+    hasLineCrossings ||
     prevElementWithCanvas.theme !== appState.theme ||
     prevElementWithCanvas.imageCrop !== imageCrop ||
     prevElementWithCanvas.containingFrameOpacity !== containingFrameOpacity
@@ -1348,7 +1382,7 @@ const drawElement = (
           context.clip("evenodd");
           context.rotate(element.angle);
           context.translate(-shiftX, -shiftY);
-          drawElementOnCanvas(element, rc, context, renderConfig);
+          drawElementOnCanvas(element, rc, context, renderConfig, elementsMap);
           context.restore();
         } else {
           context.rotate(element.angle);
@@ -1359,7 +1393,7 @@ const drawElement = (
           }
 
           context.translate(-shiftX, -shiftY);
-          drawElementOnCanvas(element, rc, context, renderConfig);
+          drawElementOnCanvas(element, rc, context, renderConfig, elementsMap);
         }
 
         context.restore();

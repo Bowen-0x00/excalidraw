@@ -178,8 +178,11 @@ import {
   SnapPointIcon, //ymjr
   SnapEdgeIcon, //ymjr
   curveArrowIcon, //ymjr
+  lineCrossingNoneIcon, //ymjr
+  lineCrossingArcIcon, //ymjr
+  lineCrossingGapIcon, //ymjr
+  lineCrossingDotIcon, //ymjr
 } from "../components/icons";
-
 import { Fonts } from "../fonts";
 import { getLanguage, t } from "../i18n";
 import {
@@ -2394,6 +2397,7 @@ export const actionChangeArrowProperties = register({
       <div className="selected-shape-actions">
         {renderAction("changeArrowhead")}
         {renderAction("changeArrowType")}
+        {renderAction("changeLineCrossings") /*ymjr*/}
       </div>
     );
   },
@@ -3135,6 +3139,81 @@ export const actionChangeSnapProp = register({
               key={option.value}
               type="button"
               // Active class triggers blue highlight
+              className={currentValue === option.value ? "active" : ""}
+              title={option.text}
+              aria-label={option.text}
+              onClick={() => updateData(option.value)}
+            >
+              {option.icon}
+            </button>
+          ))}
+        </div>
+      </fieldset>
+    );
+  },
+});
+
+// ymjr: Visio-like line crossings (jump arc, gap, dot)
+export const actionChangeLineCrossings = register({
+  name: "changeLineCrossings",
+  label: "Line Crossings",
+  trackEvent: false,
+  perform: (elements, appState, value) => {
+    const crossingValue = (value ?? "none") as "none" | "arc" | "gap" | "dot";
+
+    const newElements = changeProperty(elements, appState, (el) => {
+      if (!el || (el.type !== "line" && el.type !== "arrow")) return el;
+      const newCustomData = el.customData ? { ...el.customData } : {};
+      if (value === "none") {
+        delete newCustomData.lineCrossings;
+      } else {
+        newCustomData.lineCrossings = crossingValue;
+      }
+      const newEl = newElementWith(el, { customData: newCustomData });
+      ShapeCache.delete(newEl);
+      return newEl;
+    });
+
+    return {
+      elements: newElements,
+      appState: { currentItemLineCrossings: crossingValue },
+      captureUpdate: CaptureUpdateAction.IMMEDIATELY,
+    };
+  },
+
+  PanelComponent: ({ elements, appState, updateData, app }) => {
+    const currentValue = getFormValue(
+      elements,
+      app,
+      (element) => {
+        if (element.type !== "line" && element.type !== "arrow") return null;
+        return (element.customData &&
+          "lineCrossings" in element.customData &&
+          typeof element.customData.lineCrossings === "string")
+          ? element.customData.lineCrossings
+          : "none";
+      },
+      (element) => element.type === "line" || element.type === "arrow",
+      (hasSelection) =>
+        hasSelection ? "none" : appState.currentItemLineCrossings || "none",
+    );
+
+    return (
+      <fieldset>
+        <legend>{"Line Crossings"}</legend>
+        <div
+          className="buttonList"
+          onPointerDown={(e) => e.preventDefault()}
+        >
+          {[
+            { value: "none", text: "Off", icon: lineCrossingNoneIcon },
+            { value: "arc", text: "Jump Arc", icon: lineCrossingArcIcon },
+            { value: "gap", text: "Gap Break", icon: lineCrossingGapIcon },
+            { value: "dot", text: "Junction Dot", icon: lineCrossingDotIcon },
+          ].map((option) => (
+            <button
+              key={option.value}
+              type="button"
               className={currentValue === option.value ? "active" : ""}
               title={option.text}
               aria-label={option.text}
