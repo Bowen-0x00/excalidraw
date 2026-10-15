@@ -9768,6 +9768,15 @@ class App extends React.Component<AppProps, AppState> {
                 this.state.currentItemArrowType === ARROW_TYPE.elbow
                   ? []
                   : null,
+              // ymjr: pass block arrow customData properties from current item state
+              customData: {
+                ...(this.state.currentItemBlockArrowWidth
+                  ? { blockArrowWidth: this.state.currentItemBlockArrowWidth }
+                  : {}),
+                ...(this.state.currentItemArrowHeadSize
+                  ? { arrowHeadSize: this.state.currentItemArrowHeadSize }
+                  : {}),
+              },
             })
           : newLinearElement({
               type: elementType,
