@@ -9,6 +9,7 @@ import {
   pointRotateRads,
   pointsEqual,
   polygonIncludesPoint,
+  polygonIncludesPointNonZero, //ymjr
   vectorFromPoint,
   vectorNormalize,
   vectorScale,
@@ -37,6 +38,7 @@ import {
   getCubicBezierCurveBound,
   getDiamondPoints,
   getElementBounds,
+  getElementAbsoluteCoords, //ymjr
   pointInsideBounds,
 } from "./bounds";
 import {
@@ -68,9 +70,11 @@ import { maxBindingDistance_simple } from "./binding";
 import { hasBackground } from "./comparisons";
 
 import { getFreedrawFillPolygon, getFreedrawMaxStrokeRadius } from "./shape";
+import { getBlockArrowPolygon } from "./blockArrow"; //ymjr
 
 import type {
   ElementsMap,
+  ExcalidrawArrowElement, //ymjr
   ExcalidrawBindableElement,
   ExcalidrawDiamondElement,
   ExcalidrawElement,
@@ -86,7 +90,11 @@ import type {
 
 export const shouldTestInside = (element: ExcalidrawElement) => {
   if (element.type === "arrow") {
-    return false;
+    // ymjr: block arrow has a closed polygon body
+    return Boolean(
+      element.endArrowhead?.startsWith("block_arrow") ||
+        element.startArrowhead?.startsWith("block_arrow"),
+    );
   }
 
   const isDraggableFromInside =
@@ -832,6 +840,27 @@ export const isPointInElement = (
   element: ExcalidrawElement,
   elementsMap: ElementsMap,
 ) => {
+  // ymjr: block arrow has a closed polygon body
+  if (
+    element.type === "arrow" &&
+    (element.endArrowhead?.startsWith("block_arrow") ||
+      element.startArrowhead?.startsWith("block_arrow"))
+  ) {
+    const polygon = getBlockArrowPolygon(element as ExcalidrawArrowElement);
+    if (polygon.length > 2) {
+      const [, , , , cx, cy] = getElementAbsoluteCoords(element, elementsMap);
+      const [px, py] = pointRotateRads(
+        point,
+        pointFrom<GlobalPoint>(cx, cy),
+        -element.angle as Radians,
+      );
+      return polygonIncludesPointNonZero(
+        pointFrom(px - element.x, py - element.y),
+        polygon,
+      );
+    }
+  }
+
   if (
     (isLinearElement(element) || isFreeDrawElement(element)) &&
     !isPathALoop(element.points)

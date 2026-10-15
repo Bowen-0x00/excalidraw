@@ -108,3 +108,4 @@ export * from "./arrows/helpers";
 export * from "./arrowheads";
 export * from "./convertToShape";
 export * from "./crossings";
+export * from "./blockArrow"; //ymjr

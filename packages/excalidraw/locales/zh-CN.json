@@ -68,6 +68,7 @@
     "arrowhead_chevron_outline": "V型粗箭头 (空心)",
     "arrowhead_block_arrow": "平底粗箭头",
     "arrowhead_block_arrow_outline": "平底粗箭头 (空心)",
+    "block_arrow_width": "粗箭头宽度",
     "more_options": "更多选项",
     "cardinality": "基数",
     "arrowtypes": "箭头类型",

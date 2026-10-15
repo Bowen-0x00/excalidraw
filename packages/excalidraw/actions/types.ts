@@ -74,6 +74,7 @@ export type ActionName =
   | "changeArrowhead"
   | "changeArrowType"
   | "changeArrowheadSize" //ymjr
+  | "changeBlockArrowWidth" //ymjr
   | "changeArrowProperties"
   | "changeOpacity"
   | "changeFontSize"

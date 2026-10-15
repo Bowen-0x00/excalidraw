@@ -67,6 +67,7 @@
     "arrowhead_chevron_outline": "Chevron (outline)",
     "arrowhead_block_arrow": "Block",
     "arrowhead_block_arrow_outline": "Block (outline)",
+    "block_arrow_width": "Block arrow width",
     "arrowhead_cardinality_one": "Cardinality (one)",
     "arrowhead_cardinality_many": "Cardinality (many)",
     "arrowhead_cardinality_one_or_many": "Cardinality (one or many)",

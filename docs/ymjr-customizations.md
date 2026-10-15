@@ -137,19 +137,21 @@ Every modified or added file in the component repository (69 files total) is cat
 - **Multi-Point Catmull-Rom Spline Interpolation**:
   - In `packages/element/src/shape.ts`, if `element.roundness` is active and `points.length > 2`, intermediate spline points are computed across 15 sub-segments per span (`segments = 15`), generating smooth curved arrow shafts through arbitrary control points.
 - **Polyline Shaft Offsetting & Miter Joins**:
-  - Shaft thickness is resolved via `element.customData?.blockArrowWidth || element.customData?.arrowHeadLineWidth`, falling back to `Math.max(16, element.strokeWidth * 6)`.
-  - Head width scales to `shaftThickness * 2.5`.
+  - Shaft thickness is resolved via `element.customData?.blockArrowWidth || element.customData?.arrowHeadLineWidth`, falling back to `Math.max(16, element.strokeWidth * 6)`. Controlled via `actionChangeBlockArrowWidth` slider in `actionProperties.tsx`.
+  - Head width scales to `shaftThickness * 2.5 * (element.customData?.arrowHeadSize ?? 1)`.
   - Shaft normal vectors (`sNormals`) are computed for each segment. Vertex miter joins are calculated with a miter clamp (`miterDist = Math.min(w / ((mx * n1[0] + my * n1[1]) / mLen), w * 2)`) to prevent sharp angle blowouts.
 - **Closed Polygon Assembly**:
+  - Extracted to reusable `getBlockArrowPolygon` in `packages/element/src/blockArrow.ts`.
   - Start arrowhead tip/wings $\rightarrow$ left shaft offset polyline $\rightarrow$ end arrowhead wings/tip $\rightarrow$ right shaft offset polyline (reversed) $\rightarrow$ closing back to start wing.
   - Trims start and end head lengths (capped at 45% of total curve length) so arrowhead bases blend seamlessly into the shaft.
-- **Outline vs. Filled Rendering**:
-  - `block_arrow`: Filled with `element.strokeColor`.
-  - `block_arrow_outline`: Filled with `canvasBackgroundColor` and stroked with `element.strokeColor`.
+- **Outline vs. Filled & Custom Fill Color**:
+  - `block_arrow`: Filled with `element.backgroundColor` when configured (non-transparent), falling back to `element.strokeColor`.
+  - `block_arrow_outline`: Filled with `element.backgroundColor` when configured (non-transparent), falling back to `canvasBackgroundColor`.
+  - Background color and fill style controls are exposed when block arrows are selected via `canChangeBackgroundColor` and `fill` predicates.
+- **Full Polygon Hit Testing (点击命中测试)**:
+  - In `packages/element/src/collision.ts`, `shouldTestInside` evaluates to `true` for block arrows, and `isPointInElement` evaluates `polygonIncludesPoint` against `getBlockArrowPolygon(element)`, enabling selection clicks across the entire visual block arrow body rather than just the center line.
 - **Custom Arrowhead Scaling (`arrowHeadSize`)**:
-  - Controlled via `actionChangeArrowheadSize` in `actionProperties.tsx` (slider from $-3$ to $3$ in logarithmic base-2 scale, representing $2^{-3} = 0.125\times$ to $2^3 = 8\times$).
-  - Bounding box calculation (`getMinMaxXYFromCurvePathOps` in `linearElementEditor.ts`) expands arrow bounds by the scaled arrowhead dimensions.
-  - Canvas padding (`cappedElementCanvasSize` in `renderElement.ts`) adds `arrowHeadSize` to avoid edge clipping during rough rasterization.
+  - Controlled via `actionChangeArrowheadSize` in `actionProperties.tsx` (slider from $-3$ to $3$ in logarithmic base-2 scale, representing $2^{-3} = 0.125\times$ to $2^3 = 8\times$). Scales `headWidth` and `headLen` proportionally.
 
 ---
 

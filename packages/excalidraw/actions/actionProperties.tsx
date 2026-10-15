@@ -2671,7 +2671,7 @@ export const actionChangeArrowType = register<keyof typeof ARROW_TYPE>({
 
 //ymjr
 // ymjr: expose custom arrowhead scaling in the properties panel.
-export const actionChangeArrowheadSize = register({
+export const actionChangeArrowheadSize = register<number>({
   name: "changeArrowheadSize",
   label: "Change arrowhead size",
   trackEvent: false,
@@ -2693,7 +2693,7 @@ export const actionChangeArrowheadSize = register({
       }),
       appState: {
         ...appState,
-        currentItemArrowheadSize: value,
+        currentItemArrowHeadSize: value,
       },
       captureUpdate: CaptureUpdateAction.IMMEDIATELY,
     };
@@ -2724,6 +2724,76 @@ export const actionChangeArrowheadSize = register({
               true,
               appState.currentItemArrowHeadSize,
             ) ?? undefined
+          }
+        />
+      </fieldset>
+    );
+  },
+});
+// ymjr: expose custom block arrow shaft width in the properties panel.
+export const actionChangeBlockArrowWidth = register<number>({
+  name: "changeBlockArrowWidth",
+  label: "Block arrow width",
+  trackEvent: false,
+  perform: (elements, appState, value, app) => {
+    return {
+      elements: changeProperty(elements, appState, (el) => {
+        if (isArrowElement(el)) {
+          ShapeCache.delete(el);
+          // @ts-ignore
+          el.customData = {
+            ...el.customData,
+            blockArrowWidth: Number(value),
+          };
+          return el;
+        }
+
+        return el;
+      }),
+      appState: {
+        ...appState,
+        currentItemBlockArrowWidth: Number(value),
+      },
+      captureUpdate: CaptureUpdateAction.IMMEDIATELY,
+    };
+  },
+  PanelComponent: ({ elements, appState, updateData, app }) => {
+    const isBlockArrowSelected = elements.some(
+      (element) =>
+        isArrowElement(element) &&
+        (element.endArrowhead?.startsWith("block_arrow") ||
+          element.startArrowhead?.startsWith("block_arrow")),
+    );
+    const isBlockArrowActive =
+      appState.activeTool.type === "arrow" &&
+      (appState.currentItemEndArrowhead?.startsWith("block_arrow") ||
+        appState.currentItemStartArrowhead?.startsWith("block_arrow"));
+
+    if (!isBlockArrowSelected && !isBlockArrowActive) {
+      return null;
+    }
+
+    return (
+      <fieldset>
+        <legend>{t("labels.block_arrow_width") || "Block arrow width"}</legend>
+        <input
+          type="range"
+          min={4}
+          max={120}
+          step={2}
+          onChange={(event) => updateData(parseFloat(event.target.value))}
+          value={
+            getFormValue(
+              elements,
+              app,
+              (element) =>
+                isArrowElement(element) && element?.customData?.blockArrowWidth
+                  ? Number(element.customData.blockArrowWidth)
+                  : appState.currentItemBlockArrowWidth ||
+                    (element ? Math.max(16, element.strokeWidth * 6) : 24),
+              true,
+              appState.currentItemBlockArrowWidth || 24,
+            ) ?? 24
           }
         />
       </fieldset>

@@ -210,6 +210,7 @@ export const SelectedShapeActions = ({
           {/* ymjr: retain custom arrowhead and snap controls. */}
           {renderAction("changeArrowhead")}
           {renderAction("changeArrowheadSize") /*ymjr*/}
+          {renderAction("changeBlockArrowWidth") /*ymjr*/}
           {renderAction("changeSnapProp") /*ymjr*/}
         </>
       )}

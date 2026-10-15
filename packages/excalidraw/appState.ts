@@ -40,6 +40,7 @@ export const getDefaultAppState = (): Omit<
     currentItemStrokeVariability: "constant",
     currentItemStartArrowhead: null,
     currentItemArrowHeadSize: 0,
+    currentItemBlockArrowWidth: 0, //ymjr
     currentItemStrokeColor: DEFAULT_ELEMENT_PROPS.strokeColor,
     currentItemStickynoteStrokeColor: DEFAULT_ELEMENT_PROPS.strokeColor,
     currentItemStickynoteBackgroundColor: DEFAULT_STICKY_NOTE_BG,
@@ -220,6 +221,7 @@ const APP_STATE_STORAGE_CONF = (<
   },
   currentItemStartArrowhead: { browser: true, export: false, server: false },
   currentItemArrowHeadSize: { browser: true, export: false, server: false }, //ymjr
+  currentItemBlockArrowWidth: { browser: true, export: false, server: false }, //ymjr
   currentItemStrokeColor: { browser: true, export: false, server: false },
   currentItemStickynoteStrokeColor: {
     browser: true,

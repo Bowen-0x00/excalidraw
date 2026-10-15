@@ -70,10 +70,15 @@ export const canChangeBackgroundColor = (
     hasBackground(appState.activeTool.type) ||
     // a note's label (the target while editing it) has no fill, but a
     // background pick on it colors the note — so the picker stays available
-    targetElements.some((element) =>
-      hasBackground(
-        getColorTargetElement(element, "backgroundColor", elementsMap).type,
-      ),
+    targetElements.some(
+      (element) =>
+        hasBackground(
+          getColorTargetElement(element, "backgroundColor", elementsMap).type,
+        ) ||
+        // ymjr: allow background color for block arrows
+        (element.type === "arrow" &&
+          (element.endArrowhead?.startsWith("block_arrow") ||
+            element.startArrowhead?.startsWith("block_arrow"))),
     )
   );
 };
@@ -142,7 +147,12 @@ export const getShapeActionPredicates = (
         !isTransparent(appState.currentItemBackgroundColor)) ||
       targetElements.some(
         (element) =>
-          hasFillStyle(element.type) && !isTransparent(element.backgroundColor),
+          (hasFillStyle(element.type) ||
+            // ymjr: allow fill style for block arrows
+            (element.type === "arrow" &&
+              (element.endArrowhead?.startsWith("block_arrow") ||
+                element.startArrowhead?.startsWith("block_arrow")))) &&
+          !isTransparent(element.backgroundColor),
       ),
 
     // stroke / shape properties
