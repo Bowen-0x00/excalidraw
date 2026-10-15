@@ -768,23 +768,27 @@ const getStrokeWidthForElement = (
   return getStrokeWidthByKey(element.type, strokeWidthKey);
 };
 
-export const actionChangeStrokeWidth = register<StrokeWidthKey>({
+export const actionChangeStrokeWidth = register<StrokeWidthKey | number>({
   name: "changeStrokeWidth",
   label: "labels.strokeWidth",
   trackEvent: false,
   perform: (elements, appState, value) => {
-    invariant(value, "actionChangeStrokeWidth: value must be defined");
+    invariant(value !== undefined && value !== null, "actionChangeStrokeWidth: value must be defined");
+
+    const isNumeric = typeof value === "number";
 
     return {
       elements: changeProperty(elements, appState, (el) =>
         newElementWith(el, {
-          strokeWidth: getStrokeWidthForElement(el, value),
+          strokeWidth: isNumeric ? value : getStrokeWidthForElement(el, value),
         }),
       ),
       appState: {
         ...appState,
-        currentItemStrokeWidthKey: value,
-        currentItemStrokeWidth: undefined, //zsviczian
+        currentItemStrokeWidthKey: isNumeric
+          ? appState.currentItemStrokeWidthKey
+          : value,
+        currentItemStrokeWidth: isNumeric ? value : undefined, //zsviczian
       },
       captureUpdate: CaptureUpdateAction.IMMEDIATELY,
     };
@@ -2758,21 +2762,27 @@ export const actionChangeBlockArrowWidth = register<number>({
     };
   },
   PanelComponent: ({ elements, appState, updateData, app }) => {
-    const isBlockArrowSelected = elements.some(
+    const selectedElements = app.scene.getSelectedElements({
+      selectedElementIds: appState.selectedElementIds,
+    });
+    const isBlockArrowSelected = selectedElements.some(
       (element) =>
         isArrowElement(element) &&
-        (element.endArrowhead?.startsWith("block_arrow") ||
-          element.startArrowhead?.startsWith("block_arrow")),
+        Boolean(
+          element.endArrowhead?.startsWith("block_arrow") ||
+            element.startArrowhead?.startsWith("block_arrow"),
+        ),
     );
     const isBlockArrowActive =
       appState.activeTool.type === "arrow" &&
-      (appState.currentItemEndArrowhead?.startsWith("block_arrow") ||
-        appState.currentItemStartArrowhead?.startsWith("block_arrow"));
+      Boolean(
+        appState.currentItemEndArrowhead?.startsWith("block_arrow") ||
+          appState.currentItemStartArrowhead?.startsWith("block_arrow"),
+      );
 
     if (!isBlockArrowSelected && !isBlockArrowActive) {
       return null;
     }
-
     return (
       <fieldset>
         <legend>{t("labels.block_arrow_width") || "Block arrow width"}</legend>
