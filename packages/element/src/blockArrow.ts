@@ -156,7 +156,7 @@ export const getBlockArrowPolygon = (
     } else if (i === sn) {
       leftShaft.push([
         shaftPoints[sn][0] + sNormals[sn - 1][0] * w,
-        shaftPoints[sn][0] + sNormals[sn - 1][1] * w,
+        shaftPoints[sn][1] + sNormals[sn - 1][1] * w,
       ]);
       rightShaft.push([
         shaftPoints[sn][0] - sNormals[sn - 1][0] * w,
