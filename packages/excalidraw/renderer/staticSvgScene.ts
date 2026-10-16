@@ -53,6 +53,7 @@ import type {
 } from "@excalidraw/element/types";
 
 import { getFreeDrawSvgPath } from "../../element/src/freedrawPath";
+import { renderManagedTableSvg } from "@excalidraw/element/tableVisual"; // zsviczian -- ymjr
 import type { RenderableElementsMap, SVGRenderConfig } from "../scene/types";
 import type { AppState, BinaryFiles } from "../types";
 import type { Drawable } from "roughjs/bin/core";
@@ -292,14 +293,17 @@ const renderElementToSvg = async (
     case "diamond":
     case "ellipse": {
       const shape = ShapeCache.generateElementShape(element, renderConfig);
-      const node = roughSVGDrawWithPrecision(
+      const node = renderManagedTableSvg(element,shape,rsvg,svgRoot,renderConfig.theme === THEME.DARK) ?? roughSVGDrawWithPrecision(
         rsvg,
         shape,
         MAX_DECIMALS_FOR_SVG_EXPORT,
-      );
+      ); // zsviczian -- ymjr native vector table borders/shadow
       if (opacity !== 1) {
-        node.setAttribute("stroke-opacity", `${opacity}`);
-        node.setAttribute("fill-opacity", `${opacity}`);
+        if(element.customData?.table?.appearance||element.customData?.table?.borders)node.setAttribute("opacity",`${opacity}`); // zsviczian -- ymjr group filter opacity
+        else {
+          node.setAttribute("stroke-opacity", `${opacity}`);
+          node.setAttribute("fill-opacity", `${opacity}`);
+        }
       }
       node.setAttribute("stroke-linecap", "round");
       node.setAttribute(

@@ -35,6 +35,7 @@ This repository is a customized fork of [`@zsviczian/excalidraw`](https://github
 - Consumer: paired plugin `TableManager`, `tableLayout`, `TableToolbar` and its `onDuplicate` integration. Persisted metadata and row/column/image/group policy belong to the plugin. No new native element type, host-registry protocol change, network dependency or package version is introduced.
 - Baseline component `9327290413d709110cdb1dc7ef3933fdd9b2c005`, upstream `b965b9f72227b9a0be31a6a74e4d477cea2c2a90`; work is isolated on `feat/table-layout-20261016`, original HEAD retained as `backup/table-baseline-20261016`. The source pair is unpublished; lab runtime evidence is separate from package/release readiness.
 - Five focused managed-label regressions pass. Full core typecheck retains the existing unrelated test/window.h backlog. Exact-build runtime evidence and platform limits are recorded in the isolated `exports/table-lab` repository.
+- Appearance follow-up on `feat/table-appearance-20261016`: `packages/element/src/tableVisual.ts` supplies native Canvas/SVG per-edge borders and one soft table-paper shadow; the existing rectangle drawing branches call it only for explicitly styled version-2 cells/roots. Fill patterns still come from Rough.js; the full rectangle outline is omitted only during managed-table rendering. No extra scene elements, raster flattening or optional script engine is required. Three real-vector regressions cover owned rules, native hachure and SVG shadow.
 
 
 ## 2. Complete Component File Inventory

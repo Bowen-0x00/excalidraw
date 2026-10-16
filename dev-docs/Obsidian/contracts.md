@@ -164,3 +164,9 @@ PR #465 adds upstream W wrap/unwrap via instance-scoped AppWrap; no host adapter
 - Native editor/caret geometry expands for the complete source, independent of fixed display height. Stored display text and dimensions are shared by Canvas/SVG; no export-only clipping hook is required.
 - The plugin owns the `root/cell/content` metadata model, stable row/column/cell IDs, image `fileId/crop`, group/binding closure and copy/remap policy. The component re-exports native `resizeMultipleElements/updateBoundElements` rather than providing a second transform algorithm. This is a paired local integration contract; existing public APIs and serialized non-table elements remain unchanged.
 
+
+### Native appearance rendering
+
+<!-- ymjr -->
+Styled `customData.table.role="cell"` rectangles may carry `borders:{top,right,bottom,left}`, each with native `width` and `style`. Zero width means no rule. The plugin assigns a shared boundary to exactly one cell and keeps resolved colors/fills as native element properties. `role="root"` paper may carry `appearance.shadow=true`, rendered as one native Canvas shadow / SVG filter. Unstyled version-2 tables and unrelated rectangles retain the existing renderer. The shadow does not add a selectable/serialized duplicate; source text, image attachments and native editing geometry stay intact.
+

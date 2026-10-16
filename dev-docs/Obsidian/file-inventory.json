@@ -16,7 +16,8 @@
     "dependency_checkpoint": "2026-10-11: Obsidian artifact/declaration and plugin production/library builds pass. Local fork Windows Obsidian 1.14.4 smoke passes. Published 0.18.140 main/direct-popout/moved-popout input/save/cleanup smoke passes. Plugin npm tree/audit confirms no braces and source-map-js 1.2.2. Component full typecheck remains blocked by documented window.h/stale test-type failures. Packed manifest confirms Sass dev-only; no publication/version bump. The 5 MB target is 5 * 1024 * 1024 = 5,242,880 bytes. Plugin main.js: 5,051,865 bytes with published component (191,015 bytes of headroom), 5,057,617 with local fork (185,263 bytes of headroom); both are below the target. No full scanner, macOS or physical-mobile run in this checkpoint.",
     "layout_followup": "Validated follow-up: W/menu predicate enabled for full/tray/compact, excluded in mobile. 25 focused tests, isolated source typecheck, declarations/artifacts and plugin production/development builds pass. Full typecheck retains 262 existing diagnostics. Baseline tray/compact keyboard tests already passed; original reported tray failure was not reproduced. Extra live probe passed full-layout keyboard/link/history then stopped on unavailable host command-palette rendering; cleanup restored settings and removed owned drawing/controller. No full live layout-matrix pass claimed.",
     "layout_precommit": "Precommit snapshot-update run stopped at explicit maintainer request to skip further testing and commit/merge. Unrelated generated snapshots restored. Prior focused tests/builds remain the validation evidence.",
-    "table_checkpoint": "2026-10-16 OBS-038: reviewed table-only changes against source parent 9327290413d709110cdb1dc7ef3933fdd9b2c005; update only the affected file rows. The baseline ZIP audit already reports 77 drift items against this older upstream ledger. Unrelated rows and global tree fingerprints are intentionally not blindly refreshed; baseline-audit.json and table-audit.json are retained in exports/table-lab/evidence. Five label tests and paired source build pass; full typecheck retains the unrelated window.h/test backlog. This is an unpublished paired integration checkpoint."
+    "table_checkpoint": "2026-10-16 OBS-038: reviewed table-only changes against source parent 9327290413d709110cdb1dc7ef3933fdd9b2c005; update only the affected file rows. The baseline ZIP audit already reports 77 drift items against this older upstream ledger. Unrelated rows and global tree fingerprints are intentionally not blindly refreshed; baseline-audit.json and table-audit.json are retained in exports/table-lab/evidence. Five label tests and paired source build pass; full typecheck retains the unrelated window.h/test backlog. This is an unpublished paired integration checkpoint.",
+    "table_appearance_checkpoint": "2026-10-16 OBS-038 appearance follow-up: reviewed native per-side borders and soft shadow against component parent 58ef2b03e5b049dd99b89ccffa22fcd92f2c2618. TableVisual has three passing real-vector tests; all eight table/text tests and focused code checks pass. Refresh only renderElement/staticSvgScene/new helper/test/ymjr documentation rows. Existing unrelated baseline drift and global provenance remain unchanged; no package release is claimed."
   },
   "sources": {
     "fork": {
@@ -283,7 +284,7 @@
     {
       "path": "docs/ymjr-customizations.md",
       "status": "fork-only",
-      "fork_sha256": "b7d091a2088ae7cee060ead299feb779c1730af3ec7629685e346d17905dfdb1",
+      "fork_sha256": "ba51dc987d8321bfda80a3e6c177b0b193edd4a165babcfda24bec39a75bad51",
       "upstream_sha256": null,
       "ids": ["OBS-038"],
       "note": "Existing ymjr maintainer inventory; this checkpoint adds only the reviewed native table section. Prior baseline inventory drift is recorded separately.",
@@ -305,6 +306,24 @@
       "upstream_sha256": null,
       "ids": ["OBS-038"],
       "note": "Five independent label/source/Unicode/height-boundary and unmanaged-bound-growth regression cases.",
+      "kind": "test"
+    },
+    {
+      "path": "packages/element/src/tableVisual.ts",
+      "status": "fork-only",
+      "fork_sha256": "a344a7bbf2bae97f20b43b50c74edaeda62a2cbd265c52fcd2d9992b69a38231",
+      "upstream_sha256": null,
+      "ids": ["OBS-038"],
+      "note": "Managed version-2 cell-side borders share native Canvas and vector SVG rendering, keeping Rough.js fill sets; table paper uses one actual native soft shadow/filter, no duplicate scene element.",
+      "kind": "behavior"
+    },
+    {
+      "path": "packages/element/src/__tests__/tableVisual.test.ts",
+      "status": "fork-only",
+      "fork_sha256": "e5130a44e9a57fffe265798680ccd8bbc156c672e8646f106cc6d0a750f1d6d3",
+      "upstream_sha256": null,
+      "ids": ["OBS-038"],
+      "note": "Real SVG output regressions for owned top rules without full outlines, preserved hachure fill and one native table-paper shadow.",
       "kind": "test"
     },
     {
@@ -1025,16 +1044,17 @@
     {
       "path": "packages/element/src/renderElement.ts",
       "status": "modified",
-      "fork_sha256": "32551ded43623bf157183a61bbe8026e9ba5449694eb3bc1c83b5887c5eb7f6a",
+      "fork_sha256": "42fcb7f59f46503c7798ecfcd915077981a82387e2b34b18e2fd4b7cf0a1e4fc",
       "upstream_sha256": "3e2336ab71d128161db8976b992e59176ee598c52cd3297460bab33c5b87f8f2",
       "ids": [
         "OBS-014",
         "OBS-015",
         "OBS-016",
         "OBS-018",
-        "OBS-027"
+        "OBS-027",
+        "OBS-038"
       ],
-      "note": "Custom pen rendering, marker frames/colors, host canvas limits, image inversion/iOS handling, embed border scaling, and selection-width tuning. PR #463: crop/text-resize integration reviewed against incoming 2df993fb; see pr-463-merge-review.md.",
+      "note": "Custom pen rendering, marker frames/colors, host canvas limits, image inversion/iOS handling, embed border scaling, and selection-width tuning. PR #463: crop/text-resize integration reviewed against incoming 2df993fb; see pr-463-merge-review.md. OBS-038 appearance calls the native tableVisual helper only for styled rectangles and pads soft-shadow caches.",
       "kind": "behavior"
     },
     {
@@ -2750,15 +2770,16 @@
     {
       "path": "packages/excalidraw/renderer/staticSvgScene.ts",
       "status": "modified",
-      "fork_sha256": "1a15b9dc0224721e14a83f90e73ab8d6cdbd08e87a3f4e4c4d1a10b156ee8b59",
+      "fork_sha256": "70b4b3622712384b9ef643c43b4261f480961cfbc22283c647fed8b830af10db",
       "upstream_sha256": "0e42c65dbb356a8d0d7609df053d659748479ce79fc7ea7c04480d70daf06ebe",
       "ids": [
         "OBS-014",
         "OBS-015",
         "OBS-016",
-        "OBS-018"
+        "OBS-018",
+        "OBS-038"
       ],
-      "note": "SVG equivalents for custom strokes, embed scaling, marker visibility, frame colors, and distinct image inversion symbol IDs; frame stroke-width expression requires correction.",
+      "note": "SVG equivalents for custom strokes, embed scaling, marker visibility, frame colors, and distinct image inversion symbol IDs; frame stroke-width expression requires correction. OBS-038 appearance renders native owned cell edges, vector fill patterns and one real SVG table-paper drop shadow with group opacity.",
       "kind": "behavior"
     },
     {

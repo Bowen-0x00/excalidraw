@@ -100,6 +100,7 @@ import { isIframeLikeElement } from "@excalidraw/element/typeChecks";
 import { getArrowheadSize } from "./bounds"; //ymjr
 
 import { getFreeDrawSvgPath } from "./freedrawPath";
+import { drawManagedTableRectangle, hasTableShadow } from "./tableVisual"; // zsviczian -- ymjr
 
 const isPendingImageElement = (
   element: ExcalidrawElement,
@@ -109,6 +110,7 @@ const isPendingImageElement = (
   !renderConfig.imageCache.has(element.fileId);
 
 const getCanvasPadding = (element: ExcalidrawElement) => {
+  if (hasTableShadow(element)) return 48; // zsviczian -- ymjr soft-shadow cache padding
   switch (element.type) {
     case "freedraw":
       return element.strokeWidth * 12;
@@ -517,6 +519,8 @@ const drawElementOnCanvas = (
       if (Array.isArray(shapeOrShapes)) {
         shapeOrShapes.forEach((shape) => rc.draw(shape));
       } else if (shapeOrShapes) {
+        // zsviczian -- ymjr side-owned borders keep fills native and avoid doubled shared edges.
+        if (drawManagedTableRectangle(element, shapeOrShapes, rc, context, renderConfig.theme === THEME.DARK)) break;
         rc.draw(shapeOrShapes);
       }
       break;
