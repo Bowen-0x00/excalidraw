@@ -304,3 +304,15 @@ PR #458 moves the unchanged resize/crop dispatch from App into `AppSelectionTool
 PR #462 follows the additional upstream crop/drag/transform-handle extraction without changing saved anchoring or embed-scale behavior. The retained host container-resize API still uses its rotation and resized-coordinate helpers. Validation and platform limits are recorded in the [merge review](pr-462-merge-review.md).
 
 PR #463 retains both anchored single/multi resize guards and embed magnification. Only the now-upstream dimension-helper export loses its redundant fork comment. New crop options do not change saved image/PDF metadata or embed scale; main/popout integration evidence and signed/multi-selection limits are recorded in the [merge review](pr-463-merge-review.md).
+
+<a id="obs-038"></a>
+## OBS-038 — Host-owned semantic table layout and constrained labels
+
+**Retain the narrow component boundary; table policy belongs to the plugin.** The 2026-10-16 local integration checkpoint adds `Scene.onBeforeUpdate` before render/store callbacks, preserving geometry changes in their initiating native history increment. It is scene-instance-owned, synchronous, reentrancy-guarded and disposed with the scene/view. A post-render DOM timeout is not equivalent because it races text measurement, redraw and undo capture.
+
+`packages/element/src/tableText.ts` owns version-2 table-cell label wrapping, display dimensions, native-font ellipsis and grapheme truncation, without changing `originalText/rawText` or growing an individual cell. `newElement.refreshTextDimensions`, `textElement` redraw/resize/max-size paths and `textWysiwyg.updateWysiwygStyle` reuse it. The complete editor source uses its own expanded caret box; Canvas and SVG consume the same stored display text. Unmanaged elements keep their existing path.
+
+`packages/excalidraw/index.tsx` exports the unchanged native `resizeMultipleElements/updateBoundElements` algorithms for host group fitting and external-arrow updates. `P: TableManager`, `tableLayout`, `TableToolbar`, `elementCustomDataUtils` own table identity, row/column/media policies, native duplication remapping, migration and UI lifecycle. No element type or host-registry protocol is added.
+
+**Compatibility/gates:** opt-in `customData.table.schemaVersion=2`, stable native element/resource IDs, legacy table migration, full source after ellipsis/save/reopen, one-entry text/resize undo, native image/group editing and clone remapping. Five focused label regressions pass; exact Windows Obsidian lab/build evidence is recorded in the lab repository. Full typecheck has the existing unrelated test/window.h backlog; no physical-mobile/macOS gate is claimed. Source parent `9327290413d709110cdb1dc7ef3933fdd9b2c005`; unpublished paired source checkpoint, not a package release.
+

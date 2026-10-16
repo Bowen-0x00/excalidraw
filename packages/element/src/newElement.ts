@@ -32,6 +32,7 @@ import {
 import { getBoundTextMaxWidth } from "./textElement";
 import { normalizeText, measureText } from "./textMeasurements";
 import { wrapText } from "./textWrapping";
+import { getTableTextLayout } from "./tableText"; // zsviczian -- ymjr table constraints
 
 import { isLineElement } from "./typeChecks";
 
@@ -579,6 +580,10 @@ export const refreshTextDimensions = (
   if (textElement.isDeleted) {
     return;
   }
+  // zsviczian START -- ymjr table labels have a single layout owner.
+  const tableLayout = getTableTextLayout(textElement, container, text);
+  if (tableLayout) return tableLayout;
+  // zsviczian END
   if (
     maxWidth !== undefined &&
     !container &&

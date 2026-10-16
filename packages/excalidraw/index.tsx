@@ -477,6 +477,8 @@ export {
 export { isSafari } from "@excalidraw/common"; //ymjr
 
 export { refreshTextDimensions } from "@excalidraw/element/newElement"; //zsviczian
+export { resizeMultipleElements } from "@excalidraw/element/resizeElements"; // zsviczian -- ymjr native composite-content fitting
+export { updateBoundElements } from "@excalidraw/element/binding"; // zsviczian -- ymjr preserve connections during host-owned layout
 
 export { syncMovedIndices, syncInvalidIndices } from "@excalidraw/element"; //zsviczian
 

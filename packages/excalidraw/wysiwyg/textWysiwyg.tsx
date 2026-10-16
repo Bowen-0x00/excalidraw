@@ -41,6 +41,8 @@ import { getLineWidth } from "@excalidraw/element";
 import { normalizeText } from "@excalidraw/element";
 import { wrapText } from "@excalidraw/element";
 import { getWrappedTextLines } from "@excalidraw/element";
+import { getTableCell } from "@excalidraw/element/tableText"; // zsviczian -- ymjr
+import { measureText } from "@excalidraw/element/textMeasurements"; // zsviczian -- ymjr
 import {
   isArrowElement,
   isBoundToContainer,
@@ -381,7 +383,20 @@ export const textWysiwyg = ({
           updatedTextElement as ExcalidrawTextElementWithContainer,
         );
 
-        if (isStickyNoteElement(container)) {
+        // zsviczian START -- ymjr edit the complete source outside fixed display bounds.
+        const table = getTableCell(container);
+        if (table) {
+          const padding = Math.max(0, Number(table.padding) || 0);
+          width = Math.max(1, container.width - padding * 2);
+          height = measureText(
+            wrapText(editable.value, getFontString(updatedTextElement), width),
+            getFontString(updatedTextElement),
+            updatedTextElement.lineHeight,
+          ).height;
+          coordX = container.x + padding;
+          coordY = container.y + padding;
+        } else if (isStickyNoteElement(container)) {
+          // zsviczian END
           // the sticky fit (App.updateElement) owns the note's height; the
           // editor only mirrors the fitted label's position
           const { x, y } = computeBoundTextPosition(
@@ -519,13 +534,13 @@ export const textWysiwyg = ({
       currentTextLayout = {
         angle: angle as Radians,
         font,
-        height: updatedTextElement.height,
+        height: getTableCell(container) ? height : updatedTextElement.height, // zsviczian -- ymjr full-source caret layout
         lineHeightPx: getLineHeightInPx(
           updatedTextElement.fontSize,
           updatedTextElement.lineHeight,
         ),
         textAlign,
-        width: updatedTextElement.width,
+        width: getTableCell(container) ? width : updatedTextElement.width, // zsviczian -- ymjr
         x: coordX,
         y: coordY,
       };
@@ -536,7 +551,9 @@ export const textWysiwyg = ({
         editable.style.fontFamily = getFontFamilyString(updatedTextElement);
       }
 
-      app.scene.mutateElement(updatedTextElement, { x: coordX, y: coordY });
+      if (!getTableCell(container)) { // zsviczian -- ymjr editor geometry is not display geometry
+        app.scene.mutateElement(updatedTextElement, { x: coordX, y: coordY });
+      }
     }
   };
 

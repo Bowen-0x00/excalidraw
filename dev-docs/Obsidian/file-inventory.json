@@ -15,7 +15,8 @@
     "runtime_validation": "PR #465 exact-build Obsidian 1.14.4/macOS main/new-popout wrap/link/Markdown/history, ordinary/marker frames, image-frame SVG clipping, Delete/Cut and grouped Cmd-click probes pass; teardown, errors and owned cleanup pass. Synthetic input; existing full test/type lane and physical-device/other-platform limits remain documented in pr-465-merge-review.md.",
     "dependency_checkpoint": "2026-10-11: Obsidian artifact/declaration and plugin production/library builds pass. Local fork Windows Obsidian 1.14.4 smoke passes. Published 0.18.140 main/direct-popout/moved-popout input/save/cleanup smoke passes. Plugin npm tree/audit confirms no braces and source-map-js 1.2.2. Component full typecheck remains blocked by documented window.h/stale test-type failures. Packed manifest confirms Sass dev-only; no publication/version bump. The 5 MB target is 5 * 1024 * 1024 = 5,242,880 bytes. Plugin main.js: 5,051,865 bytes with published component (191,015 bytes of headroom), 5,057,617 with local fork (185,263 bytes of headroom); both are below the target. No full scanner, macOS or physical-mobile run in this checkpoint.",
     "layout_followup": "Validated follow-up: W/menu predicate enabled for full/tray/compact, excluded in mobile. 25 focused tests, isolated source typecheck, declarations/artifacts and plugin production/development builds pass. Full typecheck retains 262 existing diagnostics. Baseline tray/compact keyboard tests already passed; original reported tray failure was not reproduced. Extra live probe passed full-layout keyboard/link/history then stopped on unavailable host command-palette rendering; cleanup restored settings and removed owned drawing/controller. No full live layout-matrix pass claimed.",
-    "layout_precommit": "Precommit snapshot-update run stopped at explicit maintainer request to skip further testing and commit/merge. Unrelated generated snapshots restored. Prior focused tests/builds remain the validation evidence."
+    "layout_precommit": "Precommit snapshot-update run stopped at explicit maintainer request to skip further testing and commit/merge. Unrelated generated snapshots restored. Prior focused tests/builds remain the validation evidence.",
+    "table_checkpoint": "2026-10-16 OBS-038: reviewed table-only changes against source parent 9327290413d709110cdb1dc7ef3933fdd9b2c005; update only the affected file rows. The baseline ZIP audit already reports 77 drift items against this older upstream ledger. Unrelated rows and global tree fingerprints are intentionally not blindly refreshed; baseline-audit.json and table-audit.json are retained in exports/table-lab/evidence. Five label tests and paired source build pass; full typecheck retains the unrelated window.h/test backlog. This is an unpublished paired integration checkpoint."
   },
   "sources": {
     "fork": {
@@ -270,9 +271,42 @@
       "title": "Anchored images and embed-aware resizing",
       "review_state": "retain-compatibility",
       "owner": "Element and plugin asset maintainers"
+    },
+    {
+      "id": "OBS-038",
+      "title": "Host-owned semantic table layout and constrained labels",
+      "review_state": "retain-paired-integration",
+      "owner": "Element layout and plugin table maintainers"
     }
   ],
   "files": [
+    {
+      "path": "docs/ymjr-customizations.md",
+      "status": "fork-only",
+      "fork_sha256": "b7d091a2088ae7cee060ead299feb779c1730af3ec7629685e346d17905dfdb1",
+      "upstream_sha256": null,
+      "ids": ["OBS-038"],
+      "note": "Existing ymjr maintainer inventory; this checkpoint adds only the reviewed native table section. Prior baseline inventory drift is recorded separately.",
+      "kind": "documentation"
+    },
+    {
+      "path": "packages/element/src/tableText.ts",
+      "status": "fork-only",
+      "fork_sha256": "54bca15ce73c7821b91cba397c553f44b7b55de9172c1f1ec16b5bb244c9511a",
+      "upstream_sha256": null,
+      "ids": ["OBS-038"],
+      "note": "Versioned managed-cell label wrapping, measured ellipsis and grapheme clipping preserve complete source independently of display dimensions.",
+      "kind": "behavior"
+    },
+    {
+      "path": "packages/element/src/__tests__/tableText.test.ts",
+      "status": "fork-only",
+      "fork_sha256": "33a7585d6ddff9a6594e6dd6c7a7792dce51ccf6b3e37d2006f16d28f9966e86",
+      "upstream_sha256": null,
+      "ids": ["OBS-038"],
+      "note": "Five independent label/source/Unicode/height-boundary and unmanaged-bound-growth regression cases.",
+      "kind": "test"
+    },
     {
       "path": ".gitignore",
       "status": "modified",
@@ -895,13 +929,14 @@
     {
       "path": "packages/element/src/Scene.ts",
       "status": "modified",
-      "fork_sha256": "69ec910a98f7964b2f8533c673bb10f9aac6c4382bb76c9241203007f346533b",
+      "fork_sha256": "78964562e4b76bfc3725c5a6cd81681cb4ee45148e0a1d477365a4b46b843d63",
       "upstream_sha256": "c9272616db31877872bb9f46af154adc51d6f54877627973a76303e3cd8f1f92",
       "ids": [
         "OBS-014",
-        "OBS-029"
+        "OBS-029",
+        "OBS-038"
       ],
-      "note": "Optional insertion index and frame-aware insertion for single elements, including highlighters behind existing content.",
+      "note": "Optional insertion index and frame-aware insertion for single elements, including highlighters behind existing content. OBS-038 adds scene-local synchronous layout before render/store observers, with reentrancy protection and cleanup.",
       "kind": "behavior"
     },
     {
@@ -975,15 +1010,16 @@
     {
       "path": "packages/element/src/newElement.ts",
       "status": "modified",
-      "fork_sha256": "ebb97dac341aa6f27b9cd56e83640ea5d18e086e5c81183ea3afcc05f70a40b8",
+      "fork_sha256": "ded056dd1f50807713c77c9380b1f6f41119d1e63aa55189f6b8b38ae2e008a3",
       "upstream_sha256": "03d3f55fb6a19f0cb8618122e7d38ee5566705dea5b83095e39fc960bfd9e680",
       "ids": [
         "OBS-009",
         "OBS-012",
         "OBS-015",
-        "OBS-016"
+        "OBS-016",
+        "OBS-038"
       ],
-      "note": "Raw text fields, selective Obsidian IDs, embed scale defaults, frame roles, and numbered frame names.",
+      "note": "Raw text fields, selective Obsidian IDs, embed scale defaults, frame roles, and numbered frame names. OBS-038 managed labels delegate to tableText without modifying their source or growing individual cells.",
       "kind": "compatibility"
     },
     {
@@ -1028,12 +1064,13 @@
     {
       "path": "packages/element/src/textElement.ts",
       "status": "modified",
-      "fork_sha256": "35b6c4e58153944fefcc2d5076bf64a627dfc74b18568ee8ac56414d0063cedf",
+      "fork_sha256": "5c8cecd91735dc21e3f56dec86bbc52128211d431f1ccdb03a2e5dfdb7efd046",
       "upstream_sha256": "e3ffdc5c9c52d631911b309ac9bee1f0fff7f9a40d0a19cbe82d897e78c8a5c5",
       "ids": [
-        "OBS-009"
+        "OBS-009",
+        "OBS-038"
       ],
-      "note": "Persisted legacyTextWrap bypasses inscribed ellipse/diamond geometry in positioning and available text dimensions.",
+      "note": "Persisted legacyTextWrap bypasses inscribed ellipse/diamond geometry in positioning and available text dimensions. OBS-038 shares managed label redraw/resize/padding constraints with source-preserving tableText.",
       "kind": "compatibility"
     },
     {
@@ -2464,7 +2501,7 @@
     {
       "path": "packages/excalidraw/index.tsx",
       "status": "modified",
-      "fork_sha256": "f1f90ea2c874f0ecf7696633c9001c517f694741bf20bc31aeafaabb31a85ceb",
+      "fork_sha256": "d7827e6b19e1c818444e33d367cfe961a746ed721a0a4e99ebab7402fb3fe9c8",
       "upstream_sha256": "b021fd1c3e3dc7fdca1d8a719eeac7694ab097b4c12dde27dffc9ee6a6b766c9",
       "ids": [
         "OBS-005",
@@ -2473,9 +2510,10 @@
         "OBS-009",
         "OBS-010",
         "OBS-013",
-        "OBS-030"
+        "OBS-030",
+        "OBS-038"
       ],
-      "note": "Forward fork props and expose host registries, conversion/font/text/geometry helpers, and compatibility library exports.",
+      "note": "Forward fork props and expose host registries, conversion/font/text/geometry helpers, and compatibility library exports. OBS-038 exports existing native resizeMultipleElements/updateBoundElements for host-owned composite layout.",
       "kind": "integration"
     },
     {
@@ -2968,15 +3006,16 @@
     {
       "path": "packages/excalidraw/wysiwyg/textWysiwyg.tsx",
       "status": "modified",
-      "fork_sha256": "5526c2764c27c15f1ce8a1e758cb8e5dd1a534d1e89e4c922d639c6aa3c57445",
+      "fork_sha256": "2c62fb84028fd4df0fad6bd2670d09029f5a52589ba8d1e555c075d0e8226763",
       "upstream_sha256": "a4d16b699e5d71b3083564fd6e3c775f813aeb61190f8a89e2cdc982fad038a1",
       "ids": [
         "OBS-009",
         "OBS-010",
         "OBS-021",
-        "OBS-024"
+        "OBS-024",
+        "OBS-038"
       ],
-      "note": "Attach/close host suggester, preserve editing across host panels, round scaled text width, and adjust caret; a new instanceof path still uses global constructors. PR #462: reviewed against incoming e65eca999; see pr-462-merge-review.md.",
+      "note": "Attach/close host suggester, preserve editing across host panels, round scaled text width, and adjust caret; a new instanceof path still uses global constructors. PR #462: reviewed against incoming e65eca999; see pr-462-merge-review.md. OBS-038 expands the complete managed label source editor/caret independently of its fixed display bounds.",
       "kind": "integration"
     },
     {

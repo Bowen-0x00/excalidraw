@@ -26,6 +26,7 @@ import { getPositionAfterHeightChange } from "./sizeHelpers";
 import { updateStickyNoteLayout } from "./stickyNote";
 import { measureText } from "./textMeasurements";
 import { wrapText } from "./textWrapping";
+import { getTableCell, getTableTextLayout } from "./tableText"; // zsviczian -- ymjr
 import {
   isBoundToContainer,
   isArrowElement,
@@ -54,6 +55,13 @@ export const redrawTextBoundingBox = (
   scene: Scene,
 ) => {
   const elementsMap = scene.getNonDeletedElementsMap();
+  // zsviczian START -- ymjr table layout never grows an individual cell.
+  const tableLayout = getTableTextLayout(textElement, container);
+  if (tableLayout) {
+    scene.mutateElement(textElement, tableLayout);
+    return;
+  }
+  // zsviczian END
 
   if (container && isStickyNoteElement(container)) {
     // the sticky fit owns both halves (label + note geometry). `textElement`
@@ -199,6 +207,12 @@ export const handleBindTextResize = (
   }
   resetOriginalContainerCache(container.id);
   const textElement = getBoundTextElement(container, elementsMap);
+  // zsviczian START -- ymjr managed cells resize through the table owner.
+  if (textElement && getTableCell(container)) {
+    redrawTextBoundingBox(textElement, container, scene);
+    return;
+  }
+  // zsviczian END
   if (textElement && textElement.text) {
     if (!container) {
       return;
@@ -631,6 +645,8 @@ export const getBoundTextMaxWidth = (
   boundTextElement: ExcalidrawTextElement | null,
 ) => {
   const { width } = container;
+  const table = getTableCell(container); // zsviczian -- ymjr cell padding
+  if (table) return Math.max(1, width - (Number(table.padding) || 0) * 2);
   if (isArrowElement(container)) {
     const minWidth =
       (boundTextElement?.fontSize ?? DEFAULT_FONT_SIZE) *
@@ -677,6 +693,8 @@ export const getBoundTextMaxHeight = (
   boundTextElement: ExcalidrawTextElementWithContainer,
 ) => {
   const { height } = container;
+  const table = getTableCell(container); // zsviczian -- ymjr cell padding
+  if (table) return Math.max(0, height - (Number(table.padding) || 0) * 2);
   if (isStickyNoteElement(container)) {
     // the label body ends above the creation-date footer
     return Math.max(0, height - STICKY_NOTE_BODY_INSET_Y);

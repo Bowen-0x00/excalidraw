@@ -25,6 +25,18 @@ This repository is a customized fork of [`@zsviczian/excalidraw`](https://github
 
 ---
 
+### Native table integration — OBS-038, local checkpoint 2026-10-16
+
+<!-- ymjr -->
+- `packages/element/src/Scene.ts`: `Scene.onBeforeUpdate` registers a scene-instance synchronous layout pass before render/store observers, with reentrancy protection and deterministic disposal. It does not expose a plugin or active view.
+- `packages/element/src/tableText.ts`: `getTableCell/getTableTextLayout` opt in only version-2 table-cell rectangles. Display wrapping/height/ellipsis use the native font metrics, reserve the ellipsis width and truncate at grapheme boundaries; `originalText/rawText` remain untouched.
+- `newElement.refreshTextDimensions`, `textElement.redrawTextBoundingBox/handleBindTextResize/getBoundTextMaxWidth/getBoundTextMaxHeight`, and `textWysiwyg.updateWysiwygStyle` share that constraint. The source editor expands independently of fixed display geometry; ordinary bound text remains on the original path.
+- `packages/excalidraw/index.tsx` re-exports the existing `resizeMultipleElements/updateBoundElements` algorithms so the host does not reimplement native group/font/point/binding transforms.
+- Consumer: paired plugin `TableManager`, `tableLayout`, `TableToolbar` and its `onDuplicate` integration. Persisted metadata and row/column/image/group policy belong to the plugin. No new native element type, host-registry protocol change, network dependency or package version is introduced.
+- Baseline component `9327290413d709110cdb1dc7ef3933fdd9b2c005`, upstream `b965b9f72227b9a0be31a6a74e4d477cea2c2a90`; work is isolated on `feat/table-layout-20261016`, original HEAD retained as `backup/table-baseline-20261016`. The source pair is unpublished; lab runtime evidence is separate from package/release readiness.
+- Five focused managed-label regressions pass. Full core typecheck retains the existing unrelated test/window.h backlog. Exact-build runtime evidence and platform limits are recorded in the isolated `exports/table-lab` repository.
+
+
 ## 2. Complete Component File Inventory
 
 Every modified or added file in the component repository (69 files total) is categorized below with exact symbols, features, metadata dependencies, and limitations.

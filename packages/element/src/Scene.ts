@@ -111,6 +111,9 @@ export class Scene {
   // ---------------------------------------------------------------------------
 
   private callbacks: Set<SceneStateCallback> = new Set();
+  // zsviczian -- ymjr host layouts run before render/store observers.
+  private beforeUpdate = new Set<SceneStateCallback>();
+  private preparingUpdate = false;
 
   private nonDeletedElements: readonly Ordered<NonDeletedExcalidrawElement>[] =
     [];
@@ -306,7 +309,29 @@ export class Scene {
     this.triggerUpdate();
   }
 
+  /**
+   * Registers an editor-local synchronous layout pass. Mutations must use
+   * informMutation:false; geometry and the triggering edit share one increment.
+   * zsviczian -- ymjr composite tables cannot be repaired after history capture.
+   */
+  onBeforeUpdate(callback: SceneStateCallback): SceneStateCallbackRemover {
+    this.beforeUpdate.add(callback);
+    return () => { this.beforeUpdate.delete(callback); };
+  }
+
   triggerUpdate() {
+    // zsviczian START -- ymjr finish dependent geometry before publishing.
+    if (!this.preparingUpdate) {
+      this.preparingUpdate = true;
+      try {
+        for (const callback of this.beforeUpdate) callback();
+      } finally {
+        this.preparingUpdate = false;
+      }
+    } else {
+      return;
+    }
+    // zsviczian END
     this.sceneNonce = randomInteger();
 
     for (const callback of Array.from(this.callbacks)) {
@@ -342,6 +367,7 @@ export class Scene {
     // done not for memory leaks, but to guard against possible late fires
     // (I guess?)
     this.callbacks.clear();
+    this.beforeUpdate.clear(); // zsviczian -- ymjr editor-owned layout cleanup
   }
 
   /** low-level - generally use app.insertNewElements() */
