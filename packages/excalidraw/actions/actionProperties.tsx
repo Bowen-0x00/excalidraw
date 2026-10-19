@@ -793,84 +793,97 @@ export const actionChangeStrokeWidth = register<StrokeWidthKey | number>({
       captureUpdate: CaptureUpdateAction.IMMEDIATELY,
     };
   },
-  PanelComponent: ({ elements, appState, updateData, app, data }) => (
-    <fieldset>
-      <legend>{t("labels.strokeWidth")}</legend>
-      <div className="buttonList">
-        <RadioSelection<StrokeWidthKey>
-          group="stroke-width"
-          options={[
-            {
-              value: "extraThin",
-              text: t("labels.extraThin"),
-              icon: StrokeWidthExtraThinIcon, //zsviczian
-              testId: "strokeWidth-extraThin",
-            },
-            {
-              value: "thin",
-              text: t("labels.thin"),
-              icon: StrokeWidthThinIcon, //zsviczian
-              testId: "strokeWidth-thin",
-            },
-            {
-              value: "medium",
-              text: t("labels.medium"),
-              icon: StrokeWidthBaseIcon, //zsviczian
-              testId: "strokeWidth-medium",
-            },
-            {
-              value: "bold",
-              text: t("labels.bold"),
-              icon: StrokeWidthBoldIcon, //zsviczian
-              testId: "strokeWidth-bold",
-            },
-            {
-              value: "extraBold",
-              text: t("labels.extraBold"),
-              icon: StrokeWidthExtraBoldIcon, //zsviczian
-              testId: "strokeWidth-extraBold",
-            },
-          ]}
-          value={getFormValue(
-            elements,
-            app,
-            getStrokeWidthKeyForElement,
-            (element) => element.hasOwnProperty("strokeWidth"),
-            (hasSelection) =>
-              hasSelection ? null : appState.currentItemStrokeWidthKey,
-          )}
-          onChange={(value) => updateData(value)}
+  PanelComponent: ({ elements, appState, updateData, app, data }) => {
+    const currentWidth =
+      getFormValue(
+        elements,
+        app,
+        (element) => element.strokeWidth,
+        true,
+        appState.currentItemStrokeWidth,
+      ) ??
+      appState.currentItemStrokeWidth ??
+      getStrokeWidthByKey(
+        appState.activeTool.type === "freedraw" ? "freedraw" : "rectangle",
+        appState.currentItemStrokeWidthKey,
+      );
+
+    return (
+      <fieldset>
+        <legend>
+          {t("labels.strokeWidth")}
+          {currentWidth != null
+            ? ` (${Math.round(Number(currentWidth) * 10) / 10}px)`
+            : ""}
+        </legend>
+        <div className="buttonList">
+          <RadioSelection<StrokeWidthKey>
+            group="stroke-width"
+            options={[
+              {
+                value: "extraThin",
+                text: t("labels.extraThin"),
+                icon: StrokeWidthExtraThinIcon, //zsviczian
+                testId: "strokeWidth-extraThin",
+              },
+              {
+                value: "thin",
+                text: t("labels.thin"),
+                icon: StrokeWidthThinIcon, //zsviczian
+                testId: "strokeWidth-thin",
+              },
+              {
+                value: "medium",
+                text: t("labels.medium"),
+                icon: StrokeWidthBaseIcon, //zsviczian
+                testId: "strokeWidth-medium",
+              },
+              {
+                value: "bold",
+                text: t("labels.bold"),
+                icon: StrokeWidthBoldIcon, //zsviczian
+                testId: "strokeWidth-bold",
+              },
+              {
+                value: "extraBold",
+                text: t("labels.extraBold"),
+                icon: StrokeWidthExtraBoldIcon, //zsviczian
+                testId: "strokeWidth-extraBold",
+              },
+            ]}
+            value={getFormValue(
+              elements,
+              app,
+              getStrokeWidthKeyForElement,
+              (element) => element.hasOwnProperty("strokeWidth"),
+              (hasSelection) =>
+                hasSelection ? null : appState.currentItemStrokeWidthKey,
+            )}
+            onChange={(value) => updateData(value)}
+          />
+        </div>
+        {/*ymjr++>>>*/}
+        <input
+          type="range"
+          min={
+            (window as any)?.ExcalidrawAutomate?.plugin?.settings
+              ?.strokeWidthSliderMin ?? "0"
+          }
+          max={
+            (window as any)?.ExcalidrawAutomate?.plugin?.settings
+              ?.strokeWidthSliderMax ?? "100"
+          }
+          step={
+            (window as any)?.ExcalidrawAutomate?.plugin?.settings
+              ?.strokeWidthSliderStep ?? "1"
+          }
+          onChange={(event) => updateData(+event.target.value)}
+          value={currentWidth != null ? Number(currentWidth) : undefined}
         />
-      </div>
-      {/*ymjr++>>>*/}
-      <input
-        type="range"
-        min={
-          (window as any)?.ExcalidrawAutomate?.plugin?.settings
-            ?.strokeWidthSliderMin ?? "0"
-        }
-        max={
-          (window as any)?.ExcalidrawAutomate?.plugin?.settings
-            ?.strokeWidthSliderMax ?? "100"
-        }
-        step={
-          (window as any)?.ExcalidrawAutomate?.plugin?.settings
-            ?.strokeWidthSliderStep ?? "1"
-        }
-        onChange={(event) => updateData(+event.target.value)}
-        value={
-          getFormValue(
-            elements,
-            app,
-            (element) => element.strokeWidth,
-            true,
-            appState.currentItemStrokeWidth,
-          ) ?? undefined
-        }
-      />
-      {/*ymjr+<<<*/}
-    </fieldset>
-  ),
+        {/*ymjr+<<<*/}
+      </fieldset>
+    );
+  },
 });
 
 export const actionChangeSloppiness = register<ExcalidrawElement["roughness"]>({
@@ -2703,32 +2716,42 @@ export const actionChangeArrowheadSize = register<number>({
     };
   },
   PanelComponent: ({ elements, appState, updateData, app }) => {
-    const isRTL = getLanguage().rtl;
+    const currentSize =
+      getFormValue(
+        elements,
+        app,
+        (element) =>
+          canHaveArrowheads(element.type) &&
+          element?.customData?.arrowHeadSize
+            ? Number(element.customData.arrowHeadSize)
+            : appState.currentItemArrowHeadSize || 1,
+        true,
+        appState.currentItemArrowHeadSize || 1,
+      ) ?? 1;
+
+    // Power curve mapping: slider u in [0.5, 2.83] -> size in [0.25, 8.0] via size = u^2
+    // Provides ~35.6% slider travel for 4x~8x (vs only 16.7% previously under 2^x)
+    const sliderValue = Math.sqrt(Math.max(0.25, Math.min(8, currentSize)));
 
     return (
       <fieldset>
-        <legend>{"Arrowhead size"}</legend>
+        <legend>{`Arrowhead size (${Math.round(currentSize * 100)}%)`}</legend>
         <input
           type="range"
-          min={-3}
-          max={3}
-          step={0.25}
-          onChange={(event) =>
-            updateData(Math.pow(2, parseFloat(event.target.value)))
-          }
-          value={
-            getFormValue(
-              elements,
-              app,
-              (element) =>
-                canHaveArrowheads(element.type) &&
-                element?.customData?.arrowHeadSize
-                  ? Math.log2(element.customData.arrowHeadSize)
-                  : appState.currentItemArrowHeadSize,
-              true,
-              appState.currentItemArrowHeadSize,
-            ) ?? undefined
-          }
+          min={0.5}
+          max={2.83}
+          step={0.01}
+          onChange={(event) => {
+            const u = parseFloat(event.target.value);
+            let size = u * u;
+            // Snap to 1.0 (100%) when close
+            if (Math.abs(size - 1) < 0.05) {
+              size = 1;
+            }
+            updateData(Number(size.toFixed(2)));
+          }}
+          onDoubleClick={() => updateData(1)}
+          value={sliderValue}
         />
       </fieldset>
     );
@@ -2783,28 +2806,29 @@ export const actionChangeBlockArrowWidth = register<number>({
     if (!isBlockArrowSelected && !isBlockArrowActive) {
       return null;
     }
+    const currentWidth =
+      getFormValue(
+        elements,
+        app,
+        (element) =>
+          isArrowElement(element) && element?.customData?.blockArrowWidth
+            ? Number(element.customData.blockArrowWidth)
+            : appState.currentItemBlockArrowWidth ||
+              (element ? Math.max(16, element.strokeWidth * 6) : 24),
+        true,
+        appState.currentItemBlockArrowWidth || 24,
+      ) ?? 24;
+
     return (
       <fieldset>
-        <legend>{t("labels.block_arrow_width") || "Block arrow width"}</legend>
+        <legend>{`${t("labels.block_arrow_width") || "Block arrow width"} (${Math.round(currentWidth)}px)`}</legend>
         <input
           type="range"
           min={4}
           max={120}
           step={2}
           onChange={(event) => updateData(parseFloat(event.target.value))}
-          value={
-            getFormValue(
-              elements,
-              app,
-              (element) =>
-                isArrowElement(element) && element?.customData?.blockArrowWidth
-                  ? Number(element.customData.blockArrowWidth)
-                  : appState.currentItemBlockArrowWidth ||
-                    (element ? Math.max(16, element.strokeWidth * 6) : 24),
-              true,
-              appState.currentItemBlockArrowWidth || 24,
-            ) ?? 24
-          }
+          value={currentWidth}
         />
       </fieldset>
     );
@@ -2932,34 +2956,35 @@ export const actionChangeRoundnessValue = register({
     };
   },
   PanelComponent: ({ elements, appState, updateData, app }) => {
+    const roundnessPercent =
+      getFormValue(
+        elements,
+        app,
+        (element) =>
+          ((element?.roundness?.value
+            ? element.roundness.value
+            : element.roundness?.type === ROUNDNESS.PROPORTIONAL_RADIUS ||
+              element.roundness?.type === ROUNDNESS.LEGACY
+            ? DEFAULT_PROPORTIONAL_RADIUS
+            : element.roundness?.type === ROUNDNESS.ADAPTIVE_RADIUS
+            ? DEFAULT_ADAPTIVE_RADIUS
+            : 0) /
+            Math.min(element.width, element.height)) *
+          100,
+        true,
+        0,
+      ) ?? 0;
+
     return (
       <fieldset>
-        <legend>{"Roundness value"}</legend>
+        <legend>{`Roundness value (${Math.round(Number(roundnessPercent))}%)`}</legend>
         <input
           type="range"
           min={0}
           max={50}
           step={1}
           onChange={(event) => updateData(event.target.value)}
-          value={
-            getFormValue(
-              elements,
-              app,
-              (element) =>
-                ((element?.roundness?.value
-                  ? element.roundness.value
-                  : element.roundness?.type === ROUNDNESS.PROPORTIONAL_RADIUS ||
-                    element.roundness?.type === ROUNDNESS.LEGACY
-                  ? DEFAULT_PROPORTIONAL_RADIUS
-                  : element.roundness?.type === ROUNDNESS.ADAPTIVE_RADIUS
-                  ? DEFAULT_ADAPTIVE_RADIUS
-                  : 0) /
-                  Math.min(element.width, element.height)) *
-                100,
-              true,
-              0,
-            ) ?? undefined
-          }
+          value={roundnessPercent}
         />
       </fieldset>
     );

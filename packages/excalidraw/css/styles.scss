@@ -231,6 +231,41 @@ body.excalidraw-cursor-resize * {
       margin: 0;
       padding: 0;
       border: none;
+      /* ymjr: match custom property sliders to native full-width Range slider */
+      input[type="range"] {
+        width: 100%;
+        margin-inline: 0;
+        height: 4px;
+        -webkit-appearance: none;
+        background: var(--button-bg);
+        border-radius: 2px;
+        outline: none;
+        cursor: pointer;
+        margin-top: 8px;
+        margin-bottom: 8px;
+        display: block;
+        box-sizing: border-box;
+
+        &::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          width: var(--slider-thumb-size, 16px);
+          height: var(--slider-thumb-size, 16px);
+          background: var(--color-slider-thumb);
+          border-radius: 50%;
+          cursor: pointer;
+          border: none;
+        }
+
+        &::-moz-range-thumb {
+          width: var(--slider-thumb-size, 16px);
+          height: var(--slider-thumb-size, 16px);
+          background: var(--color-slider-thumb);
+          border-radius: 50%;
+          cursor: pointer;
+          border: none;
+        }
+      }
     }
   }
 

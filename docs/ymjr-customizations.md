@@ -164,8 +164,7 @@ Every modified or added file in the component repository (69 files total) is cat
 - **Full Polygon Hit Testing (点击命中测试)**:
   - In `packages/element/src/collision.ts`, `shouldTestInside` evaluates to `true` for block arrows, and `isPointInElement` evaluates `polygonIncludesPoint` against `getBlockArrowPolygon(element)`, enabling selection clicks across the entire visual block arrow body rather than just the center line.
 - **Custom Arrowhead Scaling (`arrowHeadSize`)**:
-  - Controlled via `actionChangeArrowheadSize` in `actionProperties.tsx` (slider from $-3$ to $3$ in logarithmic base-2 scale, representing $2^{-3} = 0.125\times$ to $2^3 = 8\times$). Scales `headWidth` and `headLen` proportionally.
-
+  - Controlled via `actionChangeArrowheadSize` in `actionProperties.tsx` (slider with power curve mapping $u \in [0.5, 2.83]$, representing $S = u^2 \in [0.25\times, 8.0\times]$ with live percentage display, 100% snap, and double-click reset). Scales `headWidth` and `headLen` proportionally.
 ---
 
 ### 3.2 Snap Point & Edge Binding System
