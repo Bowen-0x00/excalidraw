@@ -92,7 +92,11 @@ export class ShapeCache {
   private static rg = new RoughGenerator();
   private static cache = new WeakMap<
     ExcalidrawElement,
-    { shape: ElementShape; theme: AppState["theme"] }
+    {
+      shape: ElementShape;
+      theme: AppState["theme"];
+      versionNonce?: number;
+    }
   >();
 
   /**
@@ -104,7 +108,11 @@ export class ShapeCache {
     theme: AppState["theme"] | null,
   ) => {
     const cached = ShapeCache.cache.get(element);
-    if (cached && (theme === null || cached.theme === theme)) {
+    if (
+      cached &&
+      (theme === null || cached.theme === theme) &&
+      (!cached.versionNonce || cached.versionNonce === element.versionNonce)
+    ) {
       return cached.shape as T["type"] extends keyof ElementShapes
         ? ElementShapes[T["type"]] | undefined
         : ElementShape | undefined;
@@ -184,6 +192,7 @@ export class ShapeCache {
       ShapeCache.cache.set(element, {
         shape,
         theme: renderConfig?.theme || THEME.LIGHT,
+        versionNonce: element.versionNonce,
       });
     }
 
@@ -916,6 +925,162 @@ const _generateElementShape = (
     );
     if (shape) return shape;
   }
+  if (
+    element?.customData?.svgLayers &&
+    Array.isArray(element.customData.svgLayers) &&
+    element.customData.svgLayers.length > 0
+  ) {
+    const layers = element.customData.svgLayers as Array<{
+      d: string;
+      fill?: string;
+      stroke?: string;
+      strokeWidth?: number;
+      fillStyle?: "solid" | "hachure" | "cross-hatch" | "dots" | "zigzag";
+      roughness?: number;
+      opacity?: number;
+    }>;
+
+    const { width, height } = element;
+    const viewBox = element.customData?.svgViewBox as
+      | { x?: number; y?: number; width: number; height: number }
+      | undefined;
+
+    let scaleX = 1;
+    let scaleY = 1;
+    const offsetX = viewBox?.x || 0;
+    const offsetY = viewBox?.y || 0;
+
+    const flipX = element.customData?.scaleX ?? 1;
+    const flipY = element.customData?.scaleY ?? 1;
+
+    if (viewBox && viewBox.width > 0 && viewBox.height > 0) {
+      scaleX = width / viewBox.width;
+      scaleY = height / viewBox.height;
+    }
+
+    const finalScaleX = scaleX * flipX;
+    const finalScaleY = scaleY * flipY;
+    const translateX = flipX < 0 ? width : 0;
+    const translateY = flipY < 0 ? height : 0;
+
+    const roughShapes: Drawable[] = [];
+    const baseOptions = generateRoughOptions(
+      modifyIframeLikeForRoughOptions(
+        element,
+        isExporting,
+        embedsValidationStatus,
+      ),
+      Boolean(element.roundness),
+      isDarkMode,
+    );
+
+    const hasCustomStroke =
+      element.strokeColor &&
+      element.strokeColor !== "transparent";
+
+    const hasCustomBg =
+      element.backgroundColor &&
+      element.backgroundColor !== "transparent";
+
+    const distinctColors = new Set(
+      layers.flatMap((l) => [l.fill, l.stroke]).filter((c) => c && c !== "none"),
+    );
+    const isSingleColor = distinctColors.size <= 1;
+    const strokeScale = element.strokeWidth || 1;
+
+    for (const layer of layers) {
+      if (!layer.d) continue;
+
+      const layerOptions: Options = {
+        ...baseOptions,
+      };
+
+      // 1. Determine Fill
+      if (hasCustomBg) {
+        layerOptions.fill = applyDarkModeFilter(element.backgroundColor, isDarkMode);
+        layerOptions.fillStyle =
+          (element.fillStyle as Options["fillStyle"]) ||
+          (layer.fillStyle as Options["fillStyle"]) ||
+          "solid";
+      } else if (
+        hasCustomStroke &&
+        isSingleColor &&
+        layer.fill &&
+        layer.fill !== "none" &&
+        (!layer.stroke || layer.stroke === "none")
+      ) {
+        layerOptions.fill = applyDarkModeFilter(element.strokeColor, isDarkMode);
+        layerOptions.fillStyle =
+          (element.fillStyle as Options["fillStyle"]) ||
+          (layer.fillStyle as Options["fillStyle"]) ||
+          "solid";
+      } else if (layer.fill && layer.fill !== "none") {
+        layerOptions.fill = applyDarkModeFilter(layer.fill, isDarkMode);
+        layerOptions.fillStyle =
+          (element.fillStyle as Options["fillStyle"]) ||
+          (layer.fillStyle as Options["fillStyle"]) ||
+          "solid";
+      } else {
+        delete layerOptions.fill;
+      }
+
+      // 2. Determine Stroke & StrokeWidth
+      const baseStrokeWidth = layer.strokeWidth !== undefined ? layer.strokeWidth : 1;
+      const effectiveStrokeWidth = baseStrokeWidth * strokeScale;
+
+      if (hasCustomStroke) {
+        if (layer.stroke && layer.stroke !== "none") {
+          layerOptions.stroke = applyDarkModeFilter(element.strokeColor, isDarkMode);
+          layerOptions.strokeWidth = effectiveStrokeWidth;
+        } else if (isSingleColor && (!layer.fill || layer.fill === "none")) {
+          layerOptions.stroke = applyDarkModeFilter(element.strokeColor, isDarkMode);
+          layerOptions.strokeWidth = effectiveStrokeWidth;
+        } else {
+          layerOptions.stroke = applyDarkModeFilter(element.strokeColor, isDarkMode);
+          layerOptions.strokeWidth = strokeScale;
+        }
+      } else if (layer.stroke && layer.stroke !== "none") {
+        layerOptions.stroke = applyDarkModeFilter(layer.stroke, isDarkMode);
+        layerOptions.strokeWidth = effectiveStrokeWidth;
+      } else {
+        layerOptions.stroke = "none";
+      }
+
+      // 3. Roughness
+      layerOptions.roughness =
+        element.roughness !== undefined
+          ? adjustRoughness(element)
+          : (layer.roughness ?? 1);
+
+      const roughShape = generator.path(layer.d, layerOptions);
+
+      if (
+        finalScaleX !== 1 ||
+        finalScaleY !== 1 ||
+        offsetX !== 0 ||
+        offsetY !== 0 ||
+        translateX !== 0 ||
+        translateY !== 0
+      ) {
+        roughShape.sets.forEach((set) => {
+          set.ops.forEach((op) => {
+            for (let i = 0; i < op.data.length; i += 2) {
+              op.data[i] =
+                (op.data[i] - offsetX) * finalScaleX + translateX;
+              op.data[i + 1] =
+                (op.data[i + 1] - offsetY) * finalScaleY + translateY;
+            }
+          });
+        });
+      }
+
+      roughShapes.push(roughShape);
+    }
+
+    if (roughShapes.length > 0) {
+      return roughShapes as unknown as ElementShape;
+    }
+  }
   switch (element.type) {
     case "rectangle":
     case "iframe":
@@ -1288,7 +1453,112 @@ const _generateElementShape = (
       } else {
         shape = [generator.curve(points as unknown as RoughPoint[], options)];
       }
-      if (element?.customData?.svgPathShape) {
+      if (
+        element?.customData?.svgLayers &&
+        Array.isArray(element.customData.svgLayers) &&
+        element.customData.svgLayers.length > 0
+      ) {
+        const layers = element.customData.svgLayers as Array<{
+          d: string;
+          fill?: string;
+          stroke?: string;
+          strokeWidth?: number;
+          fillStyle?: "solid" | "hachure" | "cross-hatch" | "dots" | "zigzag";
+          roughness?: number;
+          opacity?: number;
+        }>;
+
+        const { width, height } = element;
+        const viewBox = element.customData?.svgViewBox as
+          | { x?: number; y?: number; width: number; height: number }
+          | undefined;
+
+        let scaleX = 1;
+        let scaleY = 1;
+        const offsetX = viewBox?.x || 0;
+        const offsetY = viewBox?.y || 0;
+
+        const flipX = element.customData?.scaleX ?? 1;
+        const flipY = element.customData?.scaleY ?? 1;
+
+        if (viewBox && viewBox.width > 0 && viewBox.height > 0) {
+          scaleX = width / viewBox.width;
+          scaleY = height / viewBox.height;
+        }
+
+        const finalScaleX = scaleX * flipX;
+        const finalScaleY = scaleY * flipY;
+        const translateX = flipX < 0 ? width : 0;
+        const translateY = flipY < 0 ? height : 0;
+
+        const roughShapes: Drawable[] = [];
+        const baseOptions = generateRoughOptions(
+          modifyIframeLikeForRoughOptions(
+            element,
+            isExporting,
+            embedsValidationStatus,
+          ),
+          Boolean(element.roundness),
+          isDarkMode,
+        );
+
+        for (const layer of layers) {
+          if (!layer.d) continue;
+
+          const layerOptions: Options = {
+            ...baseOptions,
+          };
+
+          if (layer.fill && layer.fill !== "none") {
+            layerOptions.fill = applyDarkModeFilter(layer.fill, isDarkMode);
+            layerOptions.fillStyle = (layer.fillStyle as Options["fillStyle"]) || "solid";
+          } else {
+            delete layerOptions.fill;
+          }
+
+          if (layer.stroke && layer.stroke !== "none") {
+            layerOptions.stroke = applyDarkModeFilter(layer.stroke, isDarkMode);
+            layerOptions.strokeWidth =
+              layer.strokeWidth !== undefined
+                ? layer.strokeWidth
+                : element.strokeWidth || 1;
+          } else {
+            layerOptions.stroke = "none";
+          }
+
+          if (layer.roughness !== undefined) {
+            layerOptions.roughness = layer.roughness;
+          }
+
+          const roughShape = generator.path(layer.d, layerOptions);
+
+          if (
+            finalScaleX !== 1 ||
+            finalScaleY !== 1 ||
+            offsetX !== 0 ||
+            offsetY !== 0 ||
+            translateX !== 0 ||
+            translateY !== 0
+          ) {
+            roughShape.sets.forEach((set) => {
+              set.ops.forEach((op) => {
+                for (let i = 0; i < op.data.length; i += 2) {
+                  op.data[i] =
+                    (op.data[i] - offsetX) * finalScaleX + translateX;
+                  op.data[i + 1] =
+                    (op.data[i + 1] - offsetY) * finalScaleY + translateY;
+                }
+              });
+            });
+          }
+
+          roughShapes.push(roughShape);
+        }
+
+        if (roughShapes.length > 0) {
+          shape = roughShapes;
+        }
+      } else if (element?.customData?.svgPathShape) {
         const pathStr = element.customData.svgPathShape as string;
 
         // 1. Generate base shape

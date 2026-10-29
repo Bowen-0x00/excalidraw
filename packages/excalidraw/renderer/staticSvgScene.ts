@@ -293,6 +293,38 @@ const renderElementToSvg = async (
     case "diamond":
     case "ellipse": {
       const shape = ShapeCache.generateElementShape(element, renderConfig);
+      if (Array.isArray(shape)) {
+        const group = svgRoot.ownerDocument.createElementNS(SVG_NS, "g");
+        shape.forEach((s) => {
+          const childNode = roughSVGDrawWithPrecision(
+            rsvg,
+            s,
+            MAX_DECIMALS_FOR_SVG_EXPORT,
+          );
+          group.appendChild(childNode);
+        });
+        if (opacity !== 1) {
+          group.setAttribute("opacity", `${opacity}`);
+        }
+        group.setAttribute("stroke-linecap", "round");
+        group.setAttribute(
+          "transform",
+          `translate(${offsetX || 0} ${
+            offsetY || 0
+          }) rotate(${degree} ${cx} ${cy})`,
+        );
+
+        const g = maybeWrapNodesInFrameClipPath(
+          element,
+          root,
+          [group],
+          renderConfig.frameRendering,
+          elementsMap,
+        );
+
+        addToRoot(g || group, element);
+        break;
+      }
       const node = renderManagedTableSvg(element,shape,rsvg,svgRoot,renderConfig.theme === THEME.DARK) ?? roughSVGDrawWithPrecision(
         rsvg,
         shape,

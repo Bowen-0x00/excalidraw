@@ -222,6 +222,7 @@ export interface ExcalidrawElementWithCanvas {
   canvasOffsetY: number;
   imageCrop: ExcalidrawImageElement["crop"] | null;
   containingFrameOpacity: number;
+  versionNonce?: number; //ymjr
 }
 
 const cappedElementCanvasSize = (
@@ -254,12 +255,14 @@ const cappedElementCanvasSize = (
           element.endArrowhead || element.startArrowhead || "arrow",
         ) * element.customData.arrowHeadSize
       : 0;
+  const isCustomSVG =
+    !!element.customData?.svgPathShape || !!element.customData?.svgLayers; //ymjr
   const elementWidth =
-    isLinearElement(element) || isFreeDrawElement(element)
+    !isCustomSVG && (isLinearElement(element) || isFreeDrawElement(element))
       ? distance(x1, x2) + arrowHeadSize //ymjr
       : element.width;
   const elementHeight =
-    isLinearElement(element) || isFreeDrawElement(element)
+    !isCustomSVG && (isLinearElement(element) || isFreeDrawElement(element))
       ? distance(y1, y2) + arrowHeadSize //ymjr
       : element.height;
 
@@ -354,6 +357,7 @@ const generateElementCanvas = (
     containingFrameOpacity:
       getContainingFrame(element, elementsMap)?.opacity || 100,
     imageCrop: isImageElement(element) ? element.crop : null,
+    versionNonce: element.versionNonce, //ymjr
   };
 };
 
@@ -845,6 +849,7 @@ const generateElementWithCanvas = (
 
   if (
     !prevElementWithCanvas ||
+    prevElementWithCanvas.versionNonce !== element.versionNonce || //ymjr
     shouldRegenerateBecauseZoom ||
     hasLineCrossings ||
     prevElementWithCanvas.theme !== appState.theme ||

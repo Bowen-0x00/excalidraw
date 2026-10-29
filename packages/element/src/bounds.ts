@@ -248,6 +248,17 @@ export const getElementAbsoluteCoords = (
   elementsMap: ElementsMap,
   includeBoundText: boolean = false,
 ): [number, number, number, number, number, number] => {
+  //ymjr: custom SVG coordinate bounds
+  if (element.customData?.svgPathShape || element.customData?.svgLayers) {
+    return [
+      element.x,
+      element.y,
+      element.x + element.width,
+      element.y + element.height,
+      element.x + element.width / 2,
+      element.y + element.height / 2,
+    ];
+  }
   if (isFreeDrawElement(element)) {
     return getFreeDrawElementAbsoluteCoords(element);
   } else if (isLinearElement(element)) {

@@ -6928,8 +6928,11 @@ class App extends React.Component<AppProps, AppState> {
     element: NonDeletedExcalidrawElement,
     considerBoundingBox = true,
   ) {
-    if (element.customData?.svgPathShape || element.customData?.curveArrow) {
-      //ymjr
+    if (
+      element.customData?.svgPathShape ||
+      element.customData?.svgLayers ||
+      element.customData?.curveArrow
+    ) {
       if (this.isPointInSVGPath(element, x, y)) {
         return true;
       }
@@ -7395,7 +7398,9 @@ class App extends React.Component<AppProps, AppState> {
   ): boolean => {
     // 1. Base filter
     if (
-      (!element.customData?.svgPathShape && !element.customData?.curveArrow) ||
+      (!element.customData?.svgPathShape &&
+        !element.customData?.svgLayers &&
+        !element.customData?.curveArrow) ||
       element.isDeleted
     ) {
       return false;
@@ -7417,6 +7422,21 @@ class App extends React.Component<AppProps, AppState> {
     }
 
     try {
+      const layers = element.customData?.svgLayers;
+      if (Array.isArray(layers) && layers.length > 0) {
+        const localX = x - element.x;
+        const localY = y - element.y;
+        if (
+          localX >= 0 &&
+          localX <= element.width &&
+          localY >= 0 &&
+          localY <= element.height
+        ) {
+          return true;
+        }
+        return false;
+      }
+
       let pathStr = element.customData?.svgPathShape as string;
 
       if (!pathStr && isCurve) {
