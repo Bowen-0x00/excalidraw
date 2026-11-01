@@ -1,6 +1,6 @@
 {
   "name": "@zsviczian/excalidraw",
-  "version": "0.18.143",
+  "version": "0.18.146",
   "type": "module",
   "main": "./dist/prod/index.js",
   "module": "./dist/prod/index.js",
@@ -8,26 +8,26 @@
   "types": "types/excalidraw/index.d.ts",
   "exports": {
     "./common/*": {
-      "types": "./dist/types/common/src/*.d.ts"
+      "types": "./types/common/src/*.d.ts"
     },
     "./element/*": {
-      "types": "./dist/types/element/src/*.d.ts"
+      "types": "./types/element/src/*.d.ts"
     },
     "./math/*": {
-      "types": "./dist/types/math/src/*.d.ts"
+      "types": "./types/math/src/*.d.ts"
     },
     "./utils/*": {
-      "types": "./dist/types/utils/src/*.d.ts"
+      "types": "./types/utils/src/*.d.ts"
     },
     "./*": {
-      "types": "./dist/types/excalidraw/*.d.ts"
+      "types": "./types/excalidraw/*.d.ts"
     },
     "./index.css": {
       "development": "./dist/dev/index.css",
       "production": "./dist/prod/index.css"
     },
     ".": {
-      "types": "./dist/types/excalidraw/index.d.ts",
+      "types": "./types/excalidraw/index.d.ts",
       "development": "./dist/dev/index.js",
       "production": "./dist/prod/index.js",
       "default": "./dist/prod/index.js"
@@ -56,7 +56,7 @@
       "not dead",
       "not ie <= 11",
       "not op_mini all",
-      "not safari < 12",
+      "not safari < 14.1",
       "not kaios <= 2.5",
       "not edge < 79",
       "not chrome < 70",
@@ -109,7 +109,7 @@
     "gifuct-js": "^2.1.2"
   },
   "devDependencies": {
-    "@excalidraw/mermaid-to-excalidraw": "2.2.2",
+    "@excalidraw/mermaid-to-excalidraw": "3.1.0",
     "@size-limit/preset-big-lib": "9.0.0",
     "@testing-library/dom": "10.4.0",
     "@testing-library/jest-dom": "6.6.3",

@@ -114,6 +114,23 @@ Prefer explicit host capabilities for the exceptional URL paths instead of widen
 <a id="d13"></a>
 ## D13 — Consolidate Mermaid loading and isolate generic preview fixes
 
+**PR #478 checkpoint:** No upstream replacement for the host loader, queued/latest
+preview or persisted selected-image source is introduced. New web-app prefetch
+addresses service-worker chunks; Extras instead inlines every diagram module.
+Retain those active differences and public aliases; no unrelated cleanup is
+included. See [merge review](pr-478-merge-review.md).
+
+**PR #475 checkpoint (2026-10-27):** Pele still emits image skeletons for seven tested diagram kinds. Keep image-source attachment/selected-source editing, copying readonly skeletons. Existing public loaders and queued/latest preview semantics still have active consumers; no additional upstream-equivalent retirement is established. Exact Extras component 3.0.0 plus installed/local declaration checks and forty-one native offline/main/popout assertions pass. Platform/broad-suite limits remain in the [PR #475 review](pr-475-merge-review.md).
+
+**PR #472 checkpoint (2026-10-21):** Upstream generated-text validation now
+accepts the dialog API; the redundant direct host lookup is retired with the
+same host-provided converter. Stable public loaded/api helpers and queued
+conversion remain. The dialog uses a private status adapter, and pending-content
+preview fixes remain active. This is partial upstream parity, not authorization
+to consolidate the remaining public loaders. Offline real-Extras main/popout
+preview/save-reopen and five focused loader regressions pass; see the
+[merge review](pr-472-merge-review.md).
+
 **Priority P2; implementation cleanup, active feature retained; OBS-030.** Host lazy conversion, shared engine ownership, and `customData.mermaidText` are active. [mermaid.ts](../../packages/excalidraw/mermaid.ts) and [obsidianUtils.ts](../../packages/excalidraw/obsidianUtils.ts) expose related loading helpers. `loadMermaidLib` is called by the wrapper and is **not** an unused helper.
 
 Consolidate duplicate caching/loading responsibility behind the versioned service while preserving public exports and retry/error behavior. Evaluate generic preview/event fixes separately for upstream parity, rather than retaining an old preview component after upstream moves it. Do not reintroduce eager Mermaid or separate engine instances to match package dependencies cosmetically. Gate: V01/V02/V06, lazy Extras, failure/retry, offline operation, export and editable source metadata.
@@ -179,3 +196,16 @@ Remaining runtime-global assumptions also exist in RTL queries in layer/tray UI,
 Raw Markdown and legacy wrap restoration, saved custom pen/highlighter semantics, Local Font identity and active CSS-export loading, selective Markdown element IDs, marker-frame behavior, anchored/embed scale data, PDF/inversion metadata, awaited migration image work, awaited drop/file-aware paste hooks, private-runtime IIFE delivery, required offline fonts/lazy Extras, and typed host registries all have active consumer or persisted compatibility evidence. Owner-window scheduling/portal fixes remain necessary even though upstream already has an `ownerDocument` prop.
 
 For these groups, the preferred path is a narrower adapter or a tested upstream contribution, not deletion. A future upstream implementation counts as a replacement only after checking the **same** saved representation, API shape, ownership/lifecycle, error behavior, and plugin tests. The goal is a small, understandable compatibility layer—not an artificially low diff count purchased by regressions.
+
+
+## PR #469 owner-runtime adoption (2026-10-20)
+
+Five complete differences retire under OBS-020/021: both scheduling helpers and
+all three top-picks drag helpers now match incoming upstream `d3a9c2a19`.
+Current-item-font prewarming and hyperlink lifecycle also use upstream owners.
+Keep the stable IDs active for trail offsets, generic document-local tooltip
+state, host portals and other remaining behavior. Generic tooltip state is not
+safe to decustomize to upstream's single timer/observer. Persisted pen/image/
+rawText and the plugin's migration unmount/persistence boundaries remain.
+See [PR #469 review](pr-469-merge-review.md) for replacement evidence, preserved
+consumers, exact file accounting, tests and platform limits.

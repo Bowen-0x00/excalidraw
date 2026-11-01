@@ -30,6 +30,13 @@ The plugin shares an evaluated runtime across editor roots. Each editor has a st
 
 ## Host registries — OBS-005/006
 
+PR #478 updates the converter implementation to 3.1.0 while preserving the
+unreleased Extras Mermaid service version 3.0.0, by explicit maintainer direction.
+That service version is a paired compatibility contract, not an alias for the
+converter's npm version. Extras inlines the per-diagram imports into its single
+CommonJS payload. No runtime chunks, remote loader or new protocol surface is
+introduced; the plugin's exact-version check stays unchanged.
+
 Both registrations are scoped to the evaluated package module, not to individual views. Both reject a mismatched `protocolVersion` and return an idempotent disposer protected by a unique token: disposing an older registration must not clear a newer one. The adapter implementations read relevant settings at call time rather than permanently capturing their initial values.
 
 ### Common host, protocol 1
@@ -46,7 +53,40 @@ Canonical definition: [commonObsidianHost.ts](../../packages/common/src/commonOb
 
 [commonObsidianUtils.ts](../../packages/common/src/commonObsidianUtils.ts) is the normalization/default layer. Preserve fake-host tests, standalone calls without a host, live settings, invalid-mode normalization, version rejection, and stale disposal.
 
-### Excalidraw host, protocol 2
+### Excalidraw host, protocol 4
+
+Plugin PR #3027 advances the paired protocol to 4 for SVG insertion preparation
+and the editor-scoped SVG file action (OBS-039). Protocol 3 is rejected. The
+Mermaid service/Extras API remains unchanged. The original
+plugin PR #3019 coordinated protocol 3 across the component and plugin. Its
+`lucide` image-menu action passes its initiating editor ID to the plugin; the
+registry never retains an active view. The plugin resolves that exact live API
+and rejects protocol 2 during package loading. Other named actions keep their
+previous call form. The Mermaid service shape below is unchanged. This is a
+local paired integration until the matching package/declarations are published
+and installed by the plugin maintainer.
+
+On 2026-10-28 the maintainer authorized merging the paired source checkpoint
+before publication, and will advance the fork version and plugin dependency in
+a later release step. Keep the protocol-3 rejection and exact-package release
+gate; this approval does not declare the currently published package compatible.
+The same unpublished-pair release gate applies to protocol 4.
+
+**PR #475:** Converter 3/Pele is provided lazily by Extras Mermaid component `3.0.0`, with an exact plugin gateway check. No Obsidian 1.15 engine is used. The host/public service remains `{loaded, api}`; readonly converter skeletons require immutable image-source attachment, not a protocol bump. Both installed and generated-local declaration checks pass. Saved `customData.mermaidText` remains editable in main/popout. See the [PR #475 review](pr-475-merge-review.md).
+
+**Mermaid previews:** The surrounding preview panel must match the exported
+canvas's opaque white background (light theme) or its renderer-filtered
+`#121212` background (dark theme). A host override of `--default-bg-color` must
+not affect it. Reset clears the inline background; export errors retain their
+original error and the matching themed background. The native dialog probe
+checks actual pixels and computed colors in both owning windows.
+
+**TTD close control:** Both Mermaid and text-to-diagram opt into the shared
+Dialog close button on desktop as well as phone layouts. Exactly one named
+button must appear at the top right, clear of the tabs. Pointer activation,
+keyboard activation and Escape use the same existing close/cleanup path;
+closing must not submit or insert a diagram and must preserve the scene.
+Other desktop dialogs retain their existing close-button policy.
 
 Canonical definition: [obsidianExcalidrawHost.ts](../../packages/excalidraw/obsidianExcalidrawHost.ts). Consumer adapter: `P: src/core/managers/obsidianExcalidrawHostAdapter.ts`.
 
@@ -56,10 +96,23 @@ Canonical definition: [obsidianExcalidrawHost.ts](../../packages/excalidraw/obsi
 | `getZoomToFitMaxLevel()`, `getZoomStep()`, `getZoomMin()`, `getZoomMax()` | Zoom preferences and limits. |
 | `isContextMenuDisabled()`, `shouldSyncElementLinkWithText()` | Host interaction/link policy. |
 | `loadFontFromFile(filename)` | Promise of vault font bytes or `undefined`; not a view or file-system object. |
-| `getMermaid()` | Promise of the host converter service, loaded lazily. |
-| `runAction("anyFile" \| "LaTeX" \| "card")` | Narrow host commands rather than discovery of a plugin instance. |
+| `getMermaid()` | Promise of `ObsidianMermaidService`: existing `{loaded: boolean, api: Promise<converter>}` shape, loaded lazily through the plugin. |
+| `runAction("anyFile" \| "LaTeX" \| "card" \| "lucide" \| "importSVG", editorId?)` | Narrow host commands rather than discovery of a plugin instance. Lucide and SVG import supply the initiating editor ID; missing/stale IDs cannot choose another drawing. |
+| `prepareMermaidSVGInsert(editorId, diagram)` (protocol 4) | Host choice before SVG Mermaid insertion: returns staged native data, the original SVG image data, or null to cancel. Exact editor/file/document identity is guarded by the plugin. No host objects cross the boundary. |
 | `getLabel(key)` | Host-owned labels. |
 | `attachInlineLinkSuggester(inputEl, widthWrapper?, container?, suppressPlaceholder?)` | Returns `ObsidianKeyBlocker`, with `isBlockingKeys()` and `close()`; caller owns closing it. |
+
+PR #472 keeps that service and public `loadMermaid()` result unchanged. The
+upstream dialog's `status`/`reloadRequired` fields are internal UI state,
+adapted in `MermaidToExcalidrawLib.ts`; they do not change protocol 2. Mermaid
+code remains Extras-provided. Web-app service-worker precaching is independent
+of Obsidian vault images and scene loading.
+
+The 2026-10-23 consumer correction derives the plugin's ambient package-host
+adapter, protocol/registration declarations and public loadMermaid function
+from these published types. Do not substitute TTDDialog's UI type for the host
+service. Its prebuild regression test checks the actual plugin producer and
+bridge against installed declarations. See the [correction record](pr-472-merge-review.md).
 
 [obsidianUtils.ts](../../packages/excalidraw/obsidianUtils.ts) delegates service/settings calls. Optional standalone paths use documented defaults; host-required operations must fail explicitly rather than silently invent a plugin. The residual global laser-settings lookup is **not** part of this typed contract and remains F03 debt.
 
@@ -114,6 +167,8 @@ PR #463 changes only upstream crop internals and text corner sizing. `PointerDow
 
 ## Extra root-library exports — OBS-007/013/029/030
 
+PR #468 adds upstream `exportScene` while retaining public `exportToCanvas`, `exportToSvg`, `exportToBlob` and the flat `exportToClipboard` form through `obsidianExport.ts`; the clipboard adapter also accepts upstream's new data/config form. Legacy plugin callers and scripting signatures stay unchanged. Frame palette/render settings move to explicit config rather than leaking through sanitized appState. No host protocol version changes. [Review and SVG/link evidence](pr-468-merge-review.md).
+
 The following are exposed by the fork's [root entry](../../packages/excalidraw/index.tsx) in addition to upstream's exports. Some merely re-export upstream helpers; public exposure, not a new algorithm, is the fork change.
 
 | Family | Export names |
@@ -129,6 +184,14 @@ The registration interfaces/disposer types are exported by their defining host m
 `registerFontsInCSS` and the root `getEmbedLink` alias have declaration/documentation evidence but no current direct plugin runtime invocation identified. `getEmbedLink` still has internal component callers. `getCSSFontDefinition` and its `getContentLegacy` path are actively consumed by plugin font/export loading. Those distinctions prevent a misleading “legacy/unused” deletion. Preserve public aliases or make an explicit deprecation decision; consider moving behavior behind upstream helpers without changing the surface.
 
 ## Persisted fields and identities — OBS-009/010/012/013/014/015/016/018/026/037
+
+PR #471 adopts upstream worker font sets while preserving the fork's public
+`Fonts.loadFontFaces(families, characters, Document)` call form; its third
+argument also accepts a FontFaceSet. Internal document callers pass their own
+font set, and the plugin retains control of replacing Local Font faces. The
+Instagram provider addition and clipboard loader-script filtering do not
+change host callback arguments, Local Font ID 4 or any persisted field.
+See the [merge review](pr-471-merge-review.md).
 
 Canonical shapes: [element/types.ts](../../packages/element/src/types.ts), [obsidianTypes.ts](../../packages/excalidraw/obsidianTypes.ts), [types.ts](../../packages/excalidraw/types.ts), defaults in [newElement.ts](../../packages/element/src/newElement.ts), restoration in [restore.ts](../../packages/excalidraw/data/restore.ts), and export in [scene/export.ts](../../packages/excalidraw/scene/export.ts). Some `customData` keys are intentionally not rigidly typed in the base element definition.
 
@@ -170,3 +233,16 @@ PR #465 adds upstream W wrap/unwrap via instance-scoped AppWrap; no host adapter
 <!-- ymjr -->
 Styled `customData.table.role="cell"` rectangles may carry `borders:{top,right,bottom,left}`, each with native `width` and `style`. Zero width means no rule. The plugin assigns a shared boundary to exactly one cell and keeps resolved colors/fills as native element properties. `role="root"` paper may carry `appearance.shadow=true`, rendered as one native Canvas shadow / SVG filter. Unstyled version-2 tables and unrelated rectangles retain the existing renderer. The shadow does not add a selectable/serialized duplicate; source text, image attachments and native editing geometry stay intact.
 
+
+## PR #469 scoped rendering checkpoint (2026-10-20)
+
+The fork adopts upstream RenderEnvironment (canvas/image/path factories,
+optional document and textMetrics), AppHost and per-call export environment.
+The plugin continues to pass its stable ownerDocument; it does not configure a
+global current window or a process-wide render-environment setter. Both typed
+Obsidian protocols and all persisted/public host contracts remain unchanged.
+Legacy getDimensions may choose an independent viewport and drawing scale;
+that scale must reach both StaticSceneRenderConfig.scale and renderConfig.scale.
+Source image cancellation, awaitImageFiles and the synchronous migration unmount
+remain required. See [the review](pr-469-merge-review.md) for complete preservation
+and partial-retirement evidence.

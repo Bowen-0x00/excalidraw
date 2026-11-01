@@ -379,8 +379,11 @@ const renderElementToSvg = async (
       );
       addToRoot(node, element);
 
-      const label = createPlaceholderEmbeddableLabel(element);
-      await renderElementToSvg(
+      const label = createPlaceholderEmbeddableLabel(
+        element,
+        renderConfig.renderEnvironment,
+      );
+      await renderElementToSvg( //ymjr -- Custom SVG hooks remain asynchronous.
         label,
         elementsMap,
         rsvg,
@@ -862,7 +865,7 @@ const renderElementToSvg = async (
           element.frameRole === "marker"
         ) //zsviczian
       ) {
-        const rect = document.createElementNS(SVG_NS, "rect");
+        const rect = svgRoot.ownerDocument.createElementNS(SVG_NS, "rect");
 
         rect.setAttribute(
           "transform",

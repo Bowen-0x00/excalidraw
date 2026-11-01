@@ -1,19 +1,19 @@
-import {
-  DEFAULT_EXPORT_PADDING,
-  EDITOR_LS_KEYS,
-  THEME,
-} from "@excalidraw/common";
+import { DEFAULT_EXPORT_PADDING, EDITOR_LS_KEYS } from "@excalidraw/common";
+// zsviczian -- match exportScene's white canvas and dark-mode filter, not host CSS variables.
+import { COLOR_WHITE, applyDarkModeFilter } from "@excalidraw/common";
 
 import { convertToExcalidrawElements } from "@excalidraw/element";
 
-import { exportToCanvas } from "@excalidraw/utils";
+import { exportScene } from "@excalidraw/utils";
 
+import type { RenderEnvironment } from "@excalidraw/element";
 import type {
   NonDeletedExcalidrawElement,
   Theme,
 } from "@excalidraw/element/types";
 
 import { EditorLocalStorage } from "../../data/EditorLocalStorage";
+import { prepareMermaidSVGInsert } from "../../obsidianUtils"; // zsviczian -- plugin #3027 owns SVG conversion choice
 
 import type { MermaidToExcalidrawLibProps } from "./types";
 
@@ -47,6 +47,7 @@ export const convertMermaidToExcalidraw = async ({
   setError,
   data,
   theme,
+  renderEnvironment,
 }: {
   canvasRef: React.RefObject<HTMLDivElement | null>;
   mermaidToExcalidrawLib: MermaidToExcalidrawLibProps;
@@ -57,6 +58,8 @@ export const convertMermaidToExcalidraw = async ({
     files: BinaryFiles | null;
   }>;
   theme: Theme;
+  /** the host's environment (`app.renderEnvironment`), to measure labels with */
+  renderEnvironment?: RenderEnvironment;
 }): Promise<{ success: true } | { success: false; error?: Error }> => {
   const canvasNode = canvasRef.current;
   const parent = canvasNode?.parentElement;
@@ -69,6 +72,9 @@ export const convertMermaidToExcalidraw = async ({
     resetPreview({ canvasRef, setError });
     return { success: false };
   }
+
+  // zsviczian -- Obsidian may override --default-bg-color independently of the preview.
+  const previewBackground = applyDarkModeFilter(COLOR_WHITE, theme === "dark");
 
   let ret;
   try {
@@ -99,35 +105,45 @@ export const convertMermaidToExcalidraw = async ({
 
     data.current = {
       elements: convertToExcalidrawElements(
-        //zsviczian add customData to new mermaid image element
-        elements.map((el) => {
-          if (el.type === "image") {
-            el.customData = { mermaidText: mermaidDefinition };
-          }
-          return el;
-        }),
-        { regenerateIds: true },
+        // zsviczian START -- retain editable source for legacy/image diagram kinds, #475
+        // elements,
+        elements.map((el) =>
+          el.type === "image"
+            ? { ...el, customData: { mermaidText: mermaidDefinition } }
+            : el,
+        ),
+        // zsviczian END
+        { regenerateIds: true, renderEnvironment },
       ),
       files,
     };
 
-    const canvas = await exportToCanvas({
-      elements: data.current.elements,
-      files: data.current.files,
-      exportPadding: DEFAULT_EXPORT_PADDING,
-      maxWidthOrHeight:
-        Math.max(parent.offsetWidth, parent.offsetHeight) *
-        window.devicePixelRatio,
-      appState: {
-        exportWithDarkMode: theme === THEME.DARK,
+    const canvas = await exportScene({
+      type: "canvas",
+      data: {
+        elements: data.current.elements,
+        files: data.current.files,
+      },
+      config: {
+        padding: DEFAULT_EXPORT_PADDING,
+        maxWidthOrHeight:
+          Math.max(parent.offsetWidth, parent.offsetHeight) *
+          (parent.ownerDocument.defaultView?.devicePixelRatio ?? 1),
+        theme,
       },
     });
 
-    parent.style.background = "var(--default-bg-color)";
+    // zsviczian START -- keep the surrounding preview the same color as its exported canvas.
+    // parent.style.background = "var(--default-bg-color)";
+    parent.style.background = previewBackground;
+    // zsviczian END
     canvasNode.replaceChildren(canvas);
     return { success: true };
   } catch (err: any) {
-    parent.style.background = "var(--default-bg-color)";
+    // zsviczian START -- retain the matching background on export failure too.
+    // parent.style.background = "var(--default-bg-color)";
+    parent.style.background = previewBackground;
+    // zsviczian END
     if (mermaidDefinition) {
       setError(err);
     }
@@ -143,7 +159,9 @@ export const saveMermaidDataToStorage = (mermaidDefinition: string) => {
   );
 };
 
-export const insertToEditor = ({
+// zsviczian START -- plugin #3027: await the host only for SVG-backed Mermaid insertion
+// export const insertToEditor = ({
+export const insertToEditor = async ({
   app,
   data,
   text,
@@ -157,7 +175,26 @@ export const insertToEditor = ({
   text?: string;
   shouldSaveMermaidDataToStorage?: boolean;
 }) => {
-  const { elements: newElements, files } = data.current;
+  // zsviczian END
+  // zsviczian START -- plugin #3027: yield the dialog to the host prompt before insertion
+  // const { elements: newElements, files } = data.current;
+  let { elements: newElements, files } = data.current;
+  const prepare = prepareMermaidSVGInsert(app, data.current);
+  if (prepare) {
+    app.setOpenDialog(null);
+    if (shouldSaveMermaidDataToStorage && text) {
+      saveMermaidDataToStorage(text);
+    }
+    const prepared = await prepare().catch((error: unknown) => {
+      console.error("Obsidian SVG diagram insertion failed", error);
+      return null;
+    });
+    if (!prepared || app.api.isDestroyed) {
+      return;
+    }
+    ({ elements: newElements, files } = prepared);
+  }
+  // zsviczian END
 
   if (!newElements.length) {
     return;

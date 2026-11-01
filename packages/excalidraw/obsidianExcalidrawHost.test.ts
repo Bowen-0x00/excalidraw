@@ -44,6 +44,7 @@ const createFakeHost = (): ObsidianExcalidrawHostAdapter => ({
     api: new Promise<never>(() => {}),
   }),
   runAction: () => {},
+  prepareMermaidSVGInsert: async (_editorId, diagram) => diagram,
   getLabel: (key) => key,
   attachInlineLinkSuggester: () => ({
     isBlockingKeys: () => false,
@@ -129,10 +130,12 @@ describe("Obsidian Excalidraw host registry", () => {
     expect(await fetchFontFromVault("vault/My%20Font.woff2")).toBe(fontData);
     expect(loadFontFromFile).toHaveBeenCalledWith("My Font.woff2");
     expect(await getSharedMermaidInstance()).toBe(mermaid);
-    expect(getMermaid).toHaveBeenCalledOnce();
+    expect(getMermaid).toHaveBeenCalledTimes(1);
 
     runAction("card");
     expect(hostRunAction).toHaveBeenCalledWith("card");
+    runAction("lucide", "initiating-editor"); // zsviczian -- plugin #3019 never guesses the active drawing
+    expect(hostRunAction).toHaveBeenCalledWith("lucide", "initiating-editor");
     expect(t2("COMP_FRAME")).toBe("translated:COMP_FRAME");
     expect(getLabel).toHaveBeenCalledWith("COMP_FRAME");
 
@@ -177,7 +180,7 @@ describe("Obsidian Excalidraw host registry", () => {
   it("rejects an unsupported runtime protocol", () => {
     const incompatibleHost = {
       ...createFakeHost(),
-      protocolVersion: 3,
+      protocolVersion: 3, // zsviczian -- plugin #3027 rejects the previous internal protocol
     } as unknown as ObsidianExcalidrawHostAdapter;
 
     expect(() => configureObsidianExcalidrawHost(incompatibleHost)).toThrow(

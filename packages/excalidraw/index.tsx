@@ -69,6 +69,7 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
     onExport,
     className,
     ownerDocument = document,
+    renderEnvironment,
     onChange,
     onThemeChange,
     onIncrement,
@@ -222,6 +223,7 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
           onExport={onExport}
           className={className}
           ownerDocument={ownerDocument}
+          renderEnvironment={renderEnvironment}
           onChange={onChange}
           onThemeChange={onThemeChange}
           onIncrement={onIncrement}
@@ -443,12 +445,21 @@ export {
 
 export { reconcileElements } from "./data/reconcile";
 
+export { exportScene /* , exportToClipboard */ } from "./scene/export"; // zsviczian -- overloaded clipboard adapter below
+// zsviczian START -- preserve public export calls while adopting exportScene, PR #468
 export {
   exportToCanvas,
-  exportToBlob,
   exportToSvg,
+  exportToBlob,
   exportToClipboard,
-} from "@excalidraw/utils/export";
+} from "./obsidianExport";
+// zsviczian END
+
+export type {
+  ExportSceneData,
+  ExportSceneConfig,
+  ExportSceneOptions,
+} from "./scene/export";
 
 export { getCommonBoundingBox } from "@excalidraw/element/bounds"; //zsviczian
 export { getMaximumGroups } from "@excalidraw/element/groups"; //zsviczian
@@ -574,6 +585,7 @@ export { isElementLink } from "@excalidraw/element";
 export { Fonts } from "./fonts/Fonts";
 
 export { setCustomTextMetricsProvider } from "@excalidraw/element";
+export type { RenderEnvironment } from "@excalidraw/element";
 
 export { updateElbowArrowPoints } from "@excalidraw/element/elbowArrow"; //ymjr
 

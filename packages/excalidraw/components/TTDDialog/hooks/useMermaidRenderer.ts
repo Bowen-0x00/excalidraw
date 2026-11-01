@@ -4,6 +4,8 @@ import type { NonDeletedExcalidrawElement } from "@excalidraw/element/types";
 
 import { useAtom } from "../../../editor-jotai";
 
+import { useApp } from "../../App";
+
 import { chatHistoryAtom, errorAtom, showPreviewAtom } from "../TTDContext";
 import { convertMermaidToExcalidraw } from "../common";
 import { isValidMermaidSyntax } from "../utils/mermaidValidation";
@@ -59,11 +61,15 @@ export const useMermaidRenderer = ({
   const hasErrorOffsetRef = useRef(false);
   const currentThrottleDelayRef = useRef(FAST_THROTTLE_DELAY);
 
+  const app = useApp();
   const { theme } = useUIAppState();
 
   const renderMermaid = useCallback(
     async (mermaidDefinition: string): Promise<boolean> => {
-      if (!mermaidDefinition.trim() || !mermaidToExcalidrawLib.loaded) {
+      if (
+        !mermaidDefinition.trim() ||
+        mermaidToExcalidrawLib.status !== "loaded"
+      ) {
         return false;
       }
 
@@ -83,6 +89,7 @@ export const useMermaidRenderer = ({
         setError,
         mermaidDefinition,
         theme,
+        renderEnvironment: app.renderEnvironment,
       });
 
       const renderDuration = performance.now() - renderStartTime;
@@ -95,7 +102,8 @@ export const useMermaidRenderer = ({
 
       isRenderingRef.current = false;
 
-      if (pendingContentRef.current) { //zsviczian mermaid preview not rendering when response is received.
+      if (pendingContentRef.current) {
+        //zsviczian mermaid preview not rendering when response is received.
         const latestContent = pendingContentRef.current;
         pendingContentRef.current = null;
         if (latestContent !== mermaidDefinition) {
@@ -105,7 +113,7 @@ export const useMermaidRenderer = ({
 
       return result.success;
     },
-    [canvasRef, mermaidToExcalidrawLib, setError, theme],
+    [app, canvasRef, mermaidToExcalidrawLib, setError, theme],
   );
 
   const throttledRenderMermaid = useMemo(() => {
@@ -185,10 +193,12 @@ export const useMermaidRenderer = ({
     lastAssistantMessage?.content,
   ]);
 
-  useEffect(() => { //zsviczian mermaid preview not rendering when response is received.
+  useEffect(() => {
+    //zsviczian mermaid preview not rendering when response is received.
     const msg = lastAssistantMessageRef.current;
 
-    if (!mermaidToExcalidrawLib.loaded || !showPreview) {
+    if (mermaidToExcalidrawLib.status !== "loaded" || !showPreview) {
+      // zsviczian -- upstream's UI status replaces loaded; retain completed-preview refresh, PR #472
       return;
     }
     if (!msg?.content || msg.error || msg.isGenerating) {
@@ -196,7 +206,7 @@ export const useMermaidRenderer = ({
     }
 
     renderMermaid(msg.content);
-  }, [mermaidToExcalidrawLib.loaded, renderMermaid, showPreview]);
+  }, [mermaidToExcalidrawLib.status, renderMermaid, showPreview]);
 
   // render the last message if the user navigates between the existing chats
   useEffect(() => {

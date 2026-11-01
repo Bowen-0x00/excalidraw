@@ -33,3 +33,4 @@ repository.zip
 # ymjr -- Private prompts and local backup archives are not public source.
 /prompt
 *.7z
+.test-work/

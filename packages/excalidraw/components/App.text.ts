@@ -212,6 +212,7 @@ export class AppText {
       const stickyLayout = stickyContainer
         ? getStickyNoteLayout(stickyContainer, latestTextElement, {
             originalText: nextOriginalText,
+            renderEnvironment: this.app.renderEnvironment,
           })
         : null;
       // a free text stops growing at the view's width (between the side
@@ -246,6 +247,7 @@ export class AppText {
                   elementsMap,
                   nextOriginalText,
                   maxWidth,
+                  this.app.renderEnvironment,
                 )),
             });
           }
@@ -285,7 +287,9 @@ export class AppText {
           stickyContainer.id,
         );
         if (latestContainer) {
-          updateBoundElements(latestContainer, this.app.scene);
+          updateBoundElements(latestContainer, this.app.scene, {
+            renderEnvironment: this.app.renderEnvironment,
+          });
         }
       }
     };
@@ -343,7 +347,9 @@ export class AppText {
 
         updateElement(nextOriginalText, false);
         if (isNonDeletedElement(element)) {
-          updateBoundElements(element, this.app.scene);
+          updateBoundElements(element, this.app.scene, {
+            renderEnvironment: this.app.renderEnvironment,
+          });
         }
       }),
       onSubmit: withBatchedUpdates(({ viaKeyboard, nextOriginalText }) => {
@@ -832,6 +838,7 @@ export class AppText {
       const minWidth = getApproxMinLineWidth(
         getFontString(fontString),
         lineHeight,
+        this.app.renderEnvironment,
       );
       const minHeight = getApproxMinLineHeight(fontSize, lineHeight);
       const newHeight = Math.max(container.height, minHeight);
@@ -933,6 +940,7 @@ export class AppText {
             ? container.angle
             : (0 as Radians),
         frameId,
+        renderEnvironment: this.app.renderEnvironment,
       });
 
     if (!existingTextElement && shouldBindToContainer && container) {

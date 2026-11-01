@@ -1,7 +1,6 @@
-import { exportToSvg } from "@excalidraw/utils/export";
 import { useEffect, useState } from "react";
 
-import { COLOR_PALETTE } from "@excalidraw/common";
+import { exportScene } from "../scene/export";
 
 import type { ExcalidrawImageElement } from "@excalidraw/element/types"; //ymjr
 import type { DataURL } from "@excalidraw/excalidraw/types"; //ymjr
@@ -16,19 +15,18 @@ export type SvgCache = Map<LibraryItem["id"], SVGSVGElement>;
 
 export const libraryItemSvgsCache = atom<SvgCache>(new Map());
 
+//ymjr -- Keep image-backed library items while using the environment-aware exporter.
 const exportLibraryItemToSvg = async (
   elements: LibraryItem["elements"],
-  files: BinaryFiles | null = null, // ymjr
+  files: BinaryFiles | null = null,
 ) => {
-  return await exportToSvg({
-    elements,
-    appState: {
-      exportBackground: false,
-      viewBackgroundColor: COLOR_PALETTE.white,
+  return await exportScene({
+    type: "svg",
+    data: { elements, files },
+    config: {
+      skipInliningFonts: true,
+      canvasBackgroundColor: false,
     },
-    files, // Pass files to exportToSvg
-    renderEmbeddables: false,
-    skipInliningFonts: true,
   });
 };
 

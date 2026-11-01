@@ -6,17 +6,68 @@ This directory records **why this fork differs from Excalidraw upstream, who con
 
 | Document | Purpose |
 | --- | --- |
-| [Customization catalog](customizations.md) | 37 stable `OBS-xxx` behavior/maintenance groups, implementation owners, consumers, upstream overlap, and retirement gates. |
+| [Customization catalog](customizations.md) | 39 stable `OBS-xxx` behavior/maintenance groups, implementation owners, consumers, upstream overlap, and retirement gates. |
 | [Integration and compatibility contracts](contracts.md) | Exact host protocols, extra props and APIs, saved data, public scripting, and artifact constraints. |
 | [Decustomization backlog](decustomization.md) | Ranked source-proven cleanup, conditional migrations, non-candidates, and correctness debt discovered during review. |
-| [File ledger](file-inventory.md) / [JSON](file-inventory.json) | All 233 currently differing source paths, including unmarked differences and observed absences. JSON is the editable ledger; Markdown is generated. |
+| [File ledger](file-inventory.md) / [JSON](file-inventory.json) | All 268 currently differing source paths, including unmarked differences and observed absences. JSON is the editable ledger; Markdown is generated. |
 | [Validation and merge playbook](validation.md) | What was actually verified, existing regression tests, missing runtime evidence, and behavior-specific gates. |
 | [Obsidian runtime testing](OBSIDIAN_RUNTIME_TESTING.md) | Guarded CLI test-vault deployment, exact-build desktop smoke, reports, and feature-specific host probes. |
 | [Local audit checker](audit.py) / [checker tests](test_audit.py) | Dependency-free, offline source accounting; detects changed, new, or retired differences and stale tree fingerprints. |
 
 Repository policies remain in [AGENTS.md](../../AGENTS.md) and [CONTRIBUTING.md](../../CONTRIBUTING.md). This inventory documents existing deviations even when they do not yet comply with those policies; it does not silently approve them.
 
-## Current merge checkpoint
+## Reviewed merge checkpoints
+
+### PR #478 lazy Pele and centered flowcharts - 2026-10-30
+
+The [PR #478 review](pr-478-merge-review.md) accounts for all 13 incoming paths
+against `a758e93d6a03e9f995973703cb886850a398a6d3`, fork parent `b2e798f37`,
+and merge base `14bb42ede`. Converter 3.1 stays dev-only here and bundled
+offline in Extras. Its unreleased service contract stays 3.0.0; no API/package
+version or plugin dependency bump. Preserve the host loader, queued/latest
+preview and editable-image metadata. No additional retirement is justified.
+Ledger: 264 differing paths; complete trees 1350 fork / 1328 upstream.
+Use the incoming commit above for the current comparison; older commands below
+are historical examples. Validation status and limits live in the review.
+
+### PR #475 Mermaid 3/Pele - 2026-10-27
+
+The [PR #475 review](pr-475-merge-review.md) accounts for all 72 incoming paths against
+`14bb42edee3d6fee6be264e3ee78670b3b9cee79`, fork parent `404912c08166`,
+and merge base `b7de45e88111`. Preserve protocol-2 loaded/api and editable
+image source, copying readonly skeletons; adapt the public arrow refresh's
+transient options. Converter 3/Pele stays Extras-provided with component 3.0.0
+and an exact consumer check. No Obsidian 1.15 engine or new retirement.
+
+Ledger: **161 modified, 37 fork-only, 39 upstream-only paths**
+(237); complete trees: **1325 fork / 1327 upstream**. Seventy-three focused
+component tests, CPU export, nineteen plugin and four Extras tests pass.
+Windows native core/main-popout image checks and forty-one offline real-Extras
+Mermaid assertions pass, including errors/cleanup. Full suite/type failures,
+missing TestAssets corpus and physical-mobile/other-platform/cold-start gates
+remain explicit. Local integration only; release versions/dependency unchanged.
+
+### Plugin #3008 wheel zoom limits — 2026-10-26
+
+Final combined macOS validation passed all feature scenarios, the JavaScript
+error gate and cleanup. Earlier intermittent ResizeObserver failures below
+remain historical evidence; this change does not fix that separate issue.
+
+Wheel input and constrained viewports now honor the plugin's live minimum and
+maximum zoom. The comparison baseline is `b7de45e88111f5680ae4bb3c3f3541c7d3b279fe`,
+the upstream parent already merged by inherited master PR #473. Its arrowhead
+work is unchanged here; `shape.ts` still differs only by the previously recorded
+inert WeakMap cleanup. The ledger adds the constrained-viewport override and
+focused wheel tests, and updates the wheel controller. No release/protocol bump.
+
+Seven focused tests, artifacts/declarations and plugin production integration
+pass. Main/popout native wheel and image-bound assertions pass with cleanup;
+the overall runner retains known ResizeObserver teardown errors. Full typecheck
+has the same three baseline test diagnostics. Required `test:update`: 81 suites
+and 1,192 tests pass; 79 suites and 1,458 tests fail, with three errors, 47 skipped
+and one todo. Its generated snapshots were restored. Physical mobile and other
+desktop platforms remain separate gates. Local artifact deployment does not
+publish the next component release or change the plugin's 0.18.144 dependency.
 
 The 2026-10-12 [PR #465 review](pr-465-merge-review.md) compares the resolved merge with incoming upstream `541653c7c9d587d463a47daacff9fb30e45a52e7`. The fork parent is `52e99975d798fc7c252f2662ba9ba225d09b9ee2`; their merge base is `2df993fb397dd6d64625908c9c10337727617f6f`. The ledger contains **163 modified, 30 fork-only, and 39 upstream-only paths** (232 total); complete tree counts are 1,306 fork files and 1,315 upstream files.
 
@@ -25,6 +76,64 @@ All 25 incoming paths were reviewed. Adopt upstream W wrapping, frame membership
 ### W layout follow-up
 
 The 2026-10-12 `fix/wrap-tray-mode-12264` checkpoint adds a shared non-mobile W/menu gate, four layout cases and the requested AGENTS reminder. Current ledger is **164 modified, 30 fork-only, 39 upstream-only paths** (233); tree counts remain 1,306/1,315. The already committed 0.18.142 version is acknowledged. Prior merge evidence above remains historical; current follow-up validation and reproduction limits are in [validation.md](validation.md).
+
+### PR #468 export API merge
+
+The 2026-10-18 [PR #468 review](pr-468-merge-review.md) uses incoming upstream `e1b7aacb356a492aa1e0fc6eb57b8896124027f0`. All 31 incoming paths are accounted for. Legacy export adapters preserve the unchanged plugin interface and community scripts while using the new upstream renderer. Marker filtering is consolidated; frame colors/raw text and image/link semantics remain. Ledger: **165 modified, 32 fork-only, 39 upstream-only paths** (236); complete trees: 1,306 fork / 1,313 upstream files. Prior version 0.18.143 and PR #467 restore changes are acknowledged. No version/publication or plugin source/dependency update. See the review for runtime evidence and remaining validation limits.
+
+### PR #469 cross-document runtime merge
+
+The 2026-10-20 [PR #469 review](pr-469-merge-review.md) compares incoming
+`d3a9c2a195182bf65b526ccb7a19de96f4bdfdb3` with fork parent `b743bd52f` and
+merge base `e1b7aacb3`. All 79 incoming paths and 23 conflicted files are
+accounted for. Upstream AppHost, scoped environments, scheduling and drag
+ownership replace equivalent local patches; five entire file differences
+retire. Generic document-local tooltips, migration cancellation/readiness,
+custom pen/highlighter and saved host behavior remain. Ledger: **161 modified,
+33 fork-only, 39 upstream-only paths** (233); complete trees: 1,312 fork /
+1,318 upstream files. The focused 88-test lane and Windows native integration
+pass; the broad older suite, three baseline test-type diagnostics and remaining
+platform/heap gates are explicitly documented. No version/publication/dependency
+update or plugin production-source change. Use this incoming commit for the
+current audit; older checkpoint commands below remain historical examples.
+
+### PR #471 Instagram and worker-font merge
+
+The 2026-10-20 [PR #471 review](pr-471-merge-review.md) compares incoming
+`bee01e3a12812c930109aa91242658709480bbf3` with fork parent `22d40c4a8` and
+merge base `d3a9c2a19`. All six incoming paths are reviewed; Fonts.ts is the
+only conflicted file. Adopt upstream Instagram and worker-font support while
+preserving host paste, embed and Local Font contracts, including the existing
+public Document loader argument. No retirement or protocol/version change.
+Ledger: **161 modified, 34 fork-only, 39 upstream-only paths** (234); complete
+trees: **1,313 fork / 1,318 upstream**. Use this incoming commit for the current
+audit; previous checkpoints remain historical evidence. Validation and limits
+are recorded in the review.
+
+### PR #472 lazy-module merge
+
+The 2026-10-21 [PR #472 review](pr-472-merge-review.md) compares incoming
+`1d4dc2c0e6e476911d0760e9c3cf3694f2d43384` with fork parent `dc5c28baa`
+and merge base `bee01e3a1`. All 21 incoming paths and three conflicts are
+accounted for. Mermaid remains supplied by the plugin/Extras through the
+unchanged protocol-2 `{loaded, api}` service. Upstream dialog status/retry is
+adapted privately; generated-text validation now uses that same supplied API,
+retiring its redundant local host lookup. Web-app PWA precaching/Firebase
+changes do not alter Obsidian's vault/scene loader. Ledger: **160 modified,
+35 fork-only, 39 upstream-only paths** (234); complete trees: **1,316 fork /
+1,320 upstream**. Use this incoming commit for the current audit. Fifteen
+focused tests, local-artifact builds and Windows native image/offline Mermaid
+main/popout checks pass; broad suite/type failures remain explicit. No version,
+publication or plugin dependency change.
+
+**2026-10-23 published-package correction:** The plugin's duplicated ambient
+Mermaid types drifted when 0.18.144 was installed; copying only runtime artifacts
+into 0.18.143 had not tested that declaration handoff. The consumer now derives
+its host/loader declarations from the installed package and checks them before
+production builds. Published-package byte verification and Windows real-Extras
+main/popout checks pass. The [review correction](pr-472-merge-review.md) records
+scope, evidence and remaining gates. The ledger acknowledges the already
+committed 0.18.144 version bump; no new fork production change or retirement.
 
 ## Initial scope and baseline
 
@@ -62,7 +171,7 @@ Requires Python 3.10+ only. Run from the fork monorepo root. No dependency insta
 
 ```bash
 python dev-docs/Obsidian/test_audit.py
-python dev-docs/Obsidian/audit.py --upstream-ref 541653c7c9d587d463a47daacff9fb30e45a52e7
+python dev-docs/Obsidian/audit.py --upstream-ref a758e93d6a03e9f995973703cb886850a398a6d3
 ```
 
 `--upstream` can instead name the supplied upstream ZIP. `--fork` defaults to the repository containing this script and can also name a clean directory or ZIP. Comparing the **original** fork ZIP against the handoff ledger should report the two intentional root-policy edits; use the patched checkout for a clean handoff comparison.

@@ -1,5 +1,41 @@
 # Validation record and upstream-merge playbook
 
+## PR #477 / plugin #3022 coordinated regression checkpoint - 2026-10-30
+
+Tested fork `053a3b9f9e77917c457fce8ca9453d38b92a303b`, plugin
+`fd32ac682e2aadc0f982fa23d36da482011117f9` and Extras
+`1cdcb7c425a9b80afdc7b39c88861143b4b85e58` pass two complete matching-build
+Windows native runs: **357/357 cases each**, including 258 behavioral obligations,
+40 device/layout profiles, cleanup/restoration and both native error/layout
+negative controls. Both use the plugin's sole repository-local working vault,
+`.test-work/vaults/excalidraw-auto-test/`, with automatic workspace builds,
+deployment/configuration, explicit CLI targeting and artifact hash verification.
+
+Final portable validation passes 666 canonical cases. This fork contributes
+**127 owned source cases (12 new / 115 reused)** and **18 reused built-browser
+cases**, plus declaration, artifact and clean package-consumer gates. No claim is
+made that the historical upstream web-app suite or whole-repository typecheck
+backlog passed. Upstream-owned tests remain unchanged.
+
+Run `npm.cmd run test:native` twice from the sibling plugin checkout with fixed
+revisions and fresh report directories, then `npm.cmd run test:regression:portable`
+and `node scripts/testing/review3022ProductionDiff.mjs`. These completion changes
+are documentation only; no version, protocol, publishing or runtime change.
+[Complete case evidence, exact hashes and repeatable commands](https://github.com/zsviczian/obsidian-excalidraw-plugin/blob/2026-10-28-automated-test-coverage/docs/testing-evidence/3022/README.md)
+are maintained with the coordinator.
+
+The historical sustained ResizeObserver cause remains unidentified; it did not
+recur in the final pair, and the strict storm gate is unchanged. Physical mobile,
+real OS drag/clipboard, native macOS/Linux and isolated whole-app cold start
+remain separate environments. Earlier checkpoints below retain their original
+hosts, failures and limitations.
+
+## PR #475 Mermaid 3/Pele - 2026-10-27
+
+The [PR #475 review](pr-475-merge-review.md) records all 72 incoming paths, three conflicts, readonly-image and transient arrow-option adaptations, the paired Extras/plugin handoff, and explicit baseline failures. Obsidian artifacts/declarations, plugin production/development/library and Extras production/API builds complete. Seventy-three focused fork tests, the CPU canvas test, nineteen plugin tests, four Extras tests and both declaration-contract modes pass. Full fork typecheck retains three baseline errors; required test:update has 81 passing/80 failing suites and three errors. Generated snapshots are restored.
+
+Windows Obsidian 1.14.5 `excalidraw-test` passes guarded core authoring/history/wheel/link/image/export checks, an extended main/popout image matrix and forty-one offline Mermaid assertions using real Extras 3.0.0. JavaScript-error and fixture-cleanup gates pass. Main.js is 5,012,218 bytes. Missing TestAssets prevents the separate SVG corpus scenario; macOS/Linux, physical mobile, cold app restart/restored popouts and the complex historical diagram corpus remain manual gates. No release/publish or absolute zero-regression claim.
+
 This document distinguishes **performed checks** from **required future gates**. It records the initial documentation/checker audit and the subsequent local CLI smoke; it is not a component release sign-off. Gate IDs below are referenced throughout the [catalog](customizations.md) and [retirement backlog](decustomization.md).
 
 ## W layout follow-up (#12264, 2026-10-12)
@@ -211,3 +247,41 @@ For follow-on cleanups, the most likely regressions are hidden public/script dep
 ## Handoff checker result
 
 **Original ZIP handoff recorded:** 14 dependency-free checker tests, including Git file selection, binary/empty/unmarked differences, new/retired/content drift, archive handling, classification validation, and exclusive report creation without manifest mutation. Both upstream-directory and upstream-ZIP comparisons passed with 230 reviewed differences and matching complete-tree fingerprints. The Markdown ledger reproduced byte-for-byte; all 759 repository-relative documentation links/anchors and explicit plugin source paths resolved. All three original ZIP checksums/comments matched the recorded provenance. The handoff archive contained exactly 11 added/modified files, with no deletions or other source changes; its member paths, content bytes and ZIP integrity were checked. The subsequent local Git and native smoke results are recorded above; neither the original audit nor the basic smoke closes feature-specific runtime gates.
+
+
+## PR #468 export API checkpoint (2026-10-18)
+
+See [three-way review, export compatibility and validation limits](pr-468-merge-review.md). Public export adapters preserve plugin/script calls. Exact linked/image SVG markup and seeded PNG pixels match before/after fixtures; native plugin link filtering, conversion and export hook pass. Artifact/declaration, plugin production/development and bundle checks pass. Existing full-suite/typecheck failures remain explicit; this is an unpublished local handoff, without plugin source/dependency changes.
+
+
+## PR #469 validation checkpoint ? 2026-10-20
+
+[The merge review](pr-469-merge-review.md) records all incoming paths, the
+parent/candidate distinction, native artifact hashes, partial decustomization
+and complete limits. Fourteen focused/maintained suites pass all 88 tests.
+Source/declaration and plugin production/development builds pass; broad tests
+and TypeScript are not reported as clean. Parent reproduction establishes the
+three untouched type errors and representative older UI-harness failures.
+Windows native scenarios cover two concurrent roots, fonts/images/tooltips,
+exports, dirty bidirectional migration, a deliberately pending image decode,
+late callbacks, durable reopen and alias teardown. Do not substitute this for
+macOS, restored/cold/offline/physical-mobile, mixed-DPI/maximized pointer/laser
+or forced-GC checks. The source migration persistence/unmount boundary is
+unchanged. See the review for exact-build comparison and remaining gates.
+
+
+## PR #472 validation checkpoint (2026-10-21)
+
+[The merge review](pr-472-merge-review.md) accounts for all 21 incoming paths,
+three conflicts and the redundant generated-text host-lookup retirement.
+Fifteen focused tests, touched-source lint, Obsidian artifacts/declarations,
+plugin production/development builds and bundle checks pass. Full typecheck
+retains the three documented baseline test diagnostics. Required `test:update`
+is **not green**: 79 passed/79 failed suites; 1174 passed/1458 failed tests,
+47 skipped/one todo, three errors. Its unrelated snapshot writes are restored.
+Windows Obsidian 1.14.4 native CLI image/export/save-reopen and genuine offline
+Extras Mermaid main/popout selected-source previews and durable reopen pass,
+with no captured errors. The prior sequence/vector and SVG-selector probe
+assumptions were corrected; no production fix was made for them. Source and
+package versions remain unchanged; no publication/dependency handoff. Physical
+mobile, macOS/Linux and web-app Firebase/PWA deployment are not claimed tested.

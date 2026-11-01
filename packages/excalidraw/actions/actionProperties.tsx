@@ -75,6 +75,7 @@ import {
 
 import {
   updateElbowArrowPoints,
+  updateElbowArrowRoute,
   CaptureUpdateAction,
   toggleLinePolygonState,
 } from "@excalidraw/element";
@@ -345,7 +346,12 @@ const changeFontSize = (
           oldElement,
           getBaseFontSizeUpdate(oldElement, newFontSize, elementsMap),
         );
-        redrawTextBoundingBox(newElement, container, app.scene);
+        redrawTextBoundingBox(
+          newElement,
+          container,
+          app.scene,
+          app.renderEnvironment,
+        );
 
         newElement = offsetElementAfterFontResize(
           oldElement,
@@ -365,7 +371,9 @@ const changeFontSize = (
     includeBoundTextElement: true,
   }).forEach((element) => {
     if (isTextElement(element)) {
-      updateBoundElements(element, app.scene);
+      updateBoundElements(element, app.scene, {
+        renderEnvironment: app.renderEnvironment,
+      });
     }
   });
 
@@ -1663,7 +1671,12 @@ export const actionChangeFontFamily = register<{
         // we either skip the check (have at least one font face loaded) or do the check and find out all the font faces have loaded
         for (const [element, container] of elementContainerMapping) {
           // trigger synchronous redraw
-          redrawTextBoundingBox(element, container, app.scene);
+          redrawTextBoundingBox(
+            element,
+            container,
+            app.scene,
+            app.renderEnvironment,
+          );
         }
       } else {
         // otherwise try to load all font faces for the given chars and redraw elements once our font faces loaded
@@ -1681,6 +1694,7 @@ export const actionChangeFontFamily = register<{
                 latestElement as ExcalidrawTextElement,
                 latestContainer,
                 app.scene,
+                app.renderEnvironment,
               );
             }
           }
@@ -1897,6 +1911,7 @@ export const actionChangeTextAlign = register<TextAlign>({
               newElement,
               app.scene.getContainerElement(oldElement),
               app.scene,
+              app.renderEnvironment,
             );
             return newElement;
           }
@@ -1999,6 +2014,7 @@ export const actionChangeVerticalAlign = register<VerticalAlign>({
               newElement,
               app.scene.getContainerElement(oldElement),
               app.scene,
+              app.renderEnvironment,
             );
             return newElement;
           }
@@ -2313,7 +2329,7 @@ export const actionChangeArrowhead = register<{
   name: "changeArrowhead",
   label: "Change arrowheads",
   trackEvent: false,
-  perform: (elements, appState, value) => {
+  perform: (elements, appState, value, app) => {
     invariant(value, "actionChangeArrowhead: value must be defined");
 
     return {
@@ -2321,17 +2337,21 @@ export const actionChangeArrowhead = register<{
         if (isLinearElement(el)) {
           const { position, type } = value;
 
-          if (position === "start") {
-            const element: ExcalidrawLinearElement = newElementWith(el, {
-              startArrowhead: type,
-            });
-            return element;
-          } else if (position === "end") {
-            const element: ExcalidrawLinearElement = newElementWith(el, {
-              endArrowhead: type,
-            });
-            return element;
-          }
+          const element: ExcalidrawLinearElement = newElementWith(
+            el,
+            position === "start"
+              ? { startArrowhead: type }
+              : { endArrowhead: type },
+          );
+          return isElbowArrow(element)
+            ? newElementWith(
+                element,
+                updateElbowArrowRoute(
+                  element,
+                  app.scene.getNonDeletedElementsMap(),
+                ),
+              )
+            : element;
         }
 
         return el;

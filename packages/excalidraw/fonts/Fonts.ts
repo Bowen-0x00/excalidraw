@@ -1,5 +1,6 @@
 import {
   FONT_FAMILY,
+  DEFAULT_FONT_FAMILY,
   FONT_FAMILY_FALLBACKS,
   CJK_HAND_DRAWN_FALLBACK_FONT,
   WINDOWS_EMOJI_FALLBACK_FONT,
@@ -43,9 +44,16 @@ import { NunitoFontFaces } from "./Nunito";
 import { VirgilFontFaces } from "./Virgil";
 import { XiaolaiFontFaces } from "./Xiaolai";
 
+/** warned once per process, not per export (e.g. on a server) */
+let warnedNoFontFaceSet = false;
+
+/** a worker's own font set (`WorkerGlobalScope.fonts`), if this is one */
+const getWorkerFontFaceSet = (): FontFaceSet | null =>
+  typeof self !== "undefined" && "fonts" in self
+    ? (self as unknown as { fonts: FontFaceSet }).fonts
+    : null;
+
 export class Fonts {
-  // it's ok to track fonts across multiple instances only once, so let's use
-  // a static member to reduce memory footprint
   public static readonly loadedFontsCache = new Set<string>();
 
   private static _registered:
@@ -82,6 +90,7 @@ export class Fonts {
 
   private readonly scene: Scene;
   private readonly ownerDocument: Document;
+  private readonly loadedFonts = new Set<string>();
 
   constructor(scene: Scene, ownerDocument: Document = document) {
     this.scene = scene;
@@ -104,9 +113,9 @@ export class Fonts {
    * of the supplied fontFaces has not already been processed.
    */
   public onLoaded = (fontFaces: readonly FontFace[]): void => {
-    // bail if all fonts with have been processed. We're checking just a
-    // subset of the font properties (though it should be enough), so it
-    // can technically bail on a false positive.
+    // bail if all fonts with have been processed by THIS instance. We're
+    // checking just a subset of the font properties (though it should be
+    // enough), so it can technically bail on a false positive.
     let shouldBail = true;
 
     //zsviczian - Obsidian adds Excalidraw irrelevant fonts
@@ -124,8 +133,10 @@ export class Fonts {
       const sig = `${fontFace.family}-${fontFace.style}-${fontFace.weight}-${fontFace.unicodeRange}`;
 
       // make sure to update our cache with all the loaded font faces
-      if (!Fonts.loadedFontsCache.has(sig)) {
-        Fonts.loadedFontsCache.add(sig);
+      Fonts.loadedFontsCache.add(sig);
+
+      if (!this.loadedFonts.has(sig)) {
+        this.loadedFonts.add(sig);
         shouldBail = false;
       }
     }
@@ -161,36 +172,66 @@ export class Fonts {
   /**
    * Load font faces for a given scene and trigger scene update.
    */
-  public loadSceneFonts = async (): Promise<FontFace[]> => {
-    const sceneFamilies = this.getSceneFamilies();
+  public loadSceneFonts = async (
+    defaultFontFamily: ExcalidrawTextElement["fontFamily"] = DEFAULT_FONT_FAMILY,
+  ): Promise<FontFace[]> => {
     const elements = this.scene.getNonDeletedElements();
+    const sceneFamilies = Fonts.getUniqueFamilies(elements);
     const charsPerFamily = Fonts.getCharsPerFamily(elements);
 
-    // zsviczian START -- load the empty-scene Welcome UI font in the editor document
-    if (!elements.length) {
-      sceneFamilies.push(FONT_FAMILY.Excalifont);
-      charsPerFamily[FONT_FAMILY.Excalifont] = new Set("Excalidraw");
+    // prewarm the default font so that the first text element is not
+    // rendered with a fallback font
+    if (!sceneFamilies.includes(defaultFontFamily)) {
+      sceneFamilies.push(defaultFontFamily);
+      charsPerFamily[defaultFontFamily] = new Set("Excalidraw");
     }
-    // zsviczian END
 
     return Fonts.loadFontFaces(
       sceneFamilies,
       charsPerFamily,
-      this.ownerDocument,
+      this.ownerDocument.fonts,
     );
   };
 
   /**
    * Load font faces for passed elements - use when the scene is unavailable (i.e. export).
+   *
+   * Loads into the document's font set, or in a worker into the worker's own
+   * (`self.fonts`, what an `OffscreenCanvas` there measures with). Where there
+   * is neither -- e.g. a DOM shim without `FontFaceSet` (`linkedom`), or Node
+   * -- nothing is loaded: the host makes the fonts available itself, and is
+   * warned once if the elements use fonts that would need loading.
    */
   public static loadElementsFonts = async (
     elements: readonly ExcalidrawElement[],
-    ownerDocument: Document = document,
+    ownerDocument?: Document,
   ): Promise<FontFace[]> => {
+    const fontFaceSet =
+      (ownerDocument ?? (typeof document !== "undefined" ? document : null))
+        ?.fonts ?? getWorkerFontFaceSet();
+
     const fontFamilies = Fonts.getUniqueFamilies(elements);
+
+    if (!fontFaceSet) {
+      // local fonts (e.g. Helvetica) are never loaded anyway
+      if (
+        !warnedNoFontFaceSet &&
+        fontFamilies.some((family) => !FONT_METADATA[family]?.local)
+      ) {
+        warnedNoFontFaceSet = true;
+        console.warn(
+          "Excalidraw: there is no font set (`document.fonts`, or a worker's " +
+            "`self.fonts`) to load the exported fonts into, so text is " +
+            "measured and drawn with whatever fonts this environment has. " +
+            "Load them yourself in `config.environment.loadFonts`.",
+        );
+      }
+      return [];
+    }
+
     const charsPerFamily = Fonts.getCharsPerFamily(elements);
 
-    return Fonts.loadFontFaces(fontFamilies, charsPerFamily, ownerDocument);
+    return Fonts.loadFontFaces(fontFamilies, charsPerFamily, fontFaceSet);
   };
 
   /**
@@ -237,9 +278,13 @@ export class Fonts {
   public static async loadFontFaces(
     fontFamilies: Array<ExcalidrawTextElement["fontFamily"]>,
     charsPerFamily: Record<number, Set<string>>,
-    ownerDocument: Document,
+    // zsviczian START -- retain the public Document argument alongside upstream worker support (#471)
+    // fontFaceSet: FontFaceSet,
+    target: FontFaceSet | Document,
+    // zsviczian END
   ) {
-    // add all registered font faces into the `document.fonts` (if not added already)
+    const fontFaceSet = "fonts" in target ? target.fonts : target; // zsviczian -- normalize the legacy argument without realm-dependent instanceof
+    // add all registered font faces into the font set (if not added already)
     for (const { fontFaces, metadata } of Fonts.registered.values()) {
       // skip registering font faces for local fonts (i.e. Helvetica)
       if (metadata.local) {
@@ -248,10 +293,10 @@ export class Fonts {
 
       for (const { fontFace } of fontFaces) {
         if (
-          !ownerDocument.fonts.has(fontFace) &&
+          !fontFaceSet.has(fontFace) &&
           fontFace.family !== "Local Font" //zsviczian if Local Font is registered I can't change it dymamically
         ) {
-          ownerDocument.fonts.add(fontFace);
+          fontFaceSet.add(fontFace);
         }
       }
     }
@@ -260,7 +305,7 @@ export class Fonts {
     const iterator = Fonts.fontFacesLoader(
       fontFamilies,
       charsPerFamily,
-      ownerDocument,
+      fontFaceSet,
     );
     const concurrency = 10;
     const fontFaces = await new PromisePool(iterator, concurrency).all();
@@ -270,8 +315,9 @@ export class Fonts {
   private static *fontFacesLoader(
     fontFamilies: Array<ExcalidrawTextElement["fontFamily"]>,
     charsPerFamily: Record<number, Set<string>>,
-    ownerDocument: Document,
+    fontFaceSet: FontFaceSet,
   ): Generator<Promise<void | readonly [number, FontFace[]]>> {
+    //ymjr -- Isolate invalid custom-font descriptors without losing owner-set loading.
     try {
       for (const [index, fontFamily] of fontFamilies.entries()) {
         const font = getFontString({
@@ -284,7 +330,7 @@ export class Fonts {
         const text = Fonts.getCharacters(charsPerFamily, fontFamily);
 
         if (
-          !ownerDocument.fonts.check(font, text) &&
+          !fontFaceSet.check(font, text) &&
           !font.startsWith("16px Local Font") && //zsviczian if Local Font is registered I can't change it dymamically
           !font.startsWith("16px Helvetica") //zsviczian there is an error loading Helvetica font (need to validate the error still exists)
         ) {
@@ -292,7 +338,7 @@ export class Fonts {
             try {
               // WARN: browser prioritizes loading only font faces with unicode ranges for characters which are present in the document (html & canvas), other font faces could stay unloaded
               // we might want to retry here, i.e.  in case CDN is down, but so far I didn't experience any issues - maybe it handles retry-like logic under the hood
-              const fontFaces = await ownerDocument.fonts.load(font, text);
+              const fontFaces = await fontFaceSet.load(font, text);
 
               return [index, fontFaces];
             } catch (e) {
@@ -476,7 +522,7 @@ export class Fonts {
    */
   private static getCharsPerFamily(
     elements: ReadonlyArray<ExcalidrawElement>,
-  ): Record<number, Set<string>> {
+  ): Record<number | string, Set<string>> { //ymjr -- Named custom families share the same character map.
     const charsPerFamily: Record<number | string, Set<string>> = {};
 
     for (const element of elements) {
@@ -507,13 +553,6 @@ export class Fonts {
     return charsPerFamily[family]
       ? Array.from(charsPerFamily[family]).join("")
       : "";
-  }
-
-  /**
-   * Get all registered font families.
-   */
-  private static getAllFamilies() {
-    return Array.from(Fonts.registered.keys());
   }
 }
 

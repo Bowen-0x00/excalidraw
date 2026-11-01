@@ -42,8 +42,11 @@ import { Fonts } from "./fonts";
 import { loadMermaidLib } from "./components/TTDDialog/MermaidToExcalidrawLib";
 import { getObsidianExcalidrawHost } from "./obsidianExcalidrawHost";
 
-import type { ObsidianKeyBlocker } from "./obsidianExcalidrawHost";
-import type { MermaidToExcalidrawLibProps } from "./components/TTDDialog/types";
+import type {
+  ObsidianExcalidrawHostAdapter, // zsviczian -- plugin #3019 derives named action types from the host
+  ObsidianKeyBlocker,
+  ObsidianMermaidService,
+} from "./obsidianExcalidrawHost";
 
 import type { AppClassProperties, AppState } from "./types";
 
@@ -186,7 +189,7 @@ export async function registerFontsInCSS() {
 export async function getCSSFontDefinition(
   fontFamily: number | string,
 ): Promise<string> {
-  //ymjr
+  //ymjr -- Resolve numeric built-ins and registered custom family names alike.
   let fontFamilyString = fontFamily;
   if (typeof fontFamily == "number") {
     for (const [fontFamilyString_, id] of Object.entries(FONT_FAMILY)) {
@@ -196,7 +199,12 @@ export async function getCSSFontDefinition(
       }
     }
   }
-  const fontFaces = Fonts.registered.get(fontFamilyString)?.fontFaces;
+  const registered = Fonts.registered.get(fontFamilyString);
+  // zsviczian -- #477: system fonts have no font-file content to embed.
+  if (registered?.metadata.local) {
+    return "";
+  }
+  const fontFaces = registered?.fontFaces;
   if (!fontFaces) {
     return "";
   }
@@ -273,7 +281,7 @@ export function isTouchInPenMode(
   );
 }
 
-export async function getSharedMermaidInstance(): Promise<MermaidToExcalidrawLibProps> {
+export async function getSharedMermaidInstance(): Promise<ObsidianMermaidService> {
   const host = getObsidianExcalidrawHost();
   if (!host) {
     throw new Error("Obsidian Excalidraw host is not configured");
@@ -281,7 +289,7 @@ export async function getSharedMermaidInstance(): Promise<MermaidToExcalidrawLib
   return await host.getMermaid();
 }
 
-export async function loadMermaid(): Promise<MermaidToExcalidrawLibProps> {
+export async function loadMermaid(): Promise<ObsidianMermaidService> {
   return await loadMermaidLib();
 }
 
@@ -324,12 +332,44 @@ export const getZoomMax = () => {
   return getObsidianExcalidrawHost()?.getZoomMax() ?? MAX_ZOOM;
 };
 
-export const runAction = (action: "anyFile" | "LaTeX" | "card"): void => {
-  getObsidianExcalidrawHost()?.runAction(action);
+// zsviczian -- plugin #3019 scopes picker opening to its initiating editor.
+export const runAction = (
+  action: Parameters<ObsidianExcalidrawHostAdapter["runAction"]>[0],
+  editorId?: string,
+): void => {
+  if (editorId === undefined) {
+    getObsidianExcalidrawHost()?.runAction(action);
+  } else {
+    getObsidianExcalidrawHost()?.runAction(action, editorId);
+  }
 };
 
 export const t2 = (key: string): string => {
   return getObsidianExcalidrawHost()?.getLabel(key) ?? key;
+};
+
+/**
+ * zsviczian -- plugin #3027: only SVG-backed Mermaid output needs the host's
+ * conversion choice. Native diagrams and standalone insertion remain synchronous.
+ * The host receives an exact editor ID and staged data, never the App instance.
+ * Author: zsviczian. See dev-docs/Obsidian/contracts.md.
+ */
+export const prepareMermaidSVGInsert = (
+  app: AppClassProperties,
+  diagram: Parameters<
+    ObsidianExcalidrawHostAdapter["prepareMermaidSVGInsert"]
+  >[1],
+) => {
+  const host = getObsidianExcalidrawHost();
+  return host &&
+    diagram.elements.some(
+      (element) =>
+        element.type === "image" &&
+        element.customData?.mermaidText &&
+        diagram.files?.[element.fileId!]?.mimeType === "image/svg+xml",
+    )
+    ? () => host.prepareMermaidSVGInsert(app.id, diagram)
+    : null;
 };
 
 export const shouldDisableZoom = (appState: AppState): boolean => {
@@ -424,7 +464,8 @@ export const refreshAllArrows = (scene: Scene, store: Store) => {
         : elementsMap.get(el.endBinding.elementId)
       : null;
 
-    LinearElementEditor.movePoints(el, scene, pointUpdates, {
+    // zsviczian -- #475 moves this transient option out of persisted element updates.
+    LinearElementEditor.movePoints(el, scene, pointUpdates, undefined, {
       moveMidPointsWithElement:
         !!startBindingElement &&
         startBindingElement?.id === endBindingElement?.id,

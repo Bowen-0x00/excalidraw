@@ -5,12 +5,7 @@ import type { AppClassProperties } from "../types";
 import { runAction, t2 } from "../obsidianUtils";
 
 import DropdownMenu from "./dropdownMenu/DropdownMenu";
-import {
-  Card,
-  ImageIcon,
-  InsertAnyFileIcon,
-  LaTeXIcon,
-} from "./icons";
+import { Card, ImageIcon, InsertAnyFileIcon, LaTeXIcon } from "./icons";
 import { isToolButtonDisabled } from "./Tools";
 
 type ImageMenuItemsProps = {
@@ -43,6 +38,23 @@ export const ImageMenuItems = ({ app }: ImageMenuItemsProps) => {
       >
         {t2("INSERT_CARD")}
       </DropdownMenu.Item>
+      {/* zsviczian -- plugin #3019: one shared entry for every image-menu consumer. */}
+      <DropdownMenu.Item
+        onSelect={() => runAction("lucide", app.id)}
+        icon={ImageIcon}
+        data-testid="toolbar-lucide"
+      >
+        {t2("INSERT_LUCIDE_ICON")}
+      </DropdownMenu.Item>
+      {/* zsviczian START -- plugin #3027: SVG-only system picker, scoped to the initiating editor */}
+      <DropdownMenu.Item
+        onSelect={() => runAction("importSVG", app.id)}
+        icon={ImageIcon}
+        data-testid="toolbar-svg-import"
+      >
+        {t2("IMPORT_SVG_AS_ELEMENTS")}
+      </DropdownMenu.Item>
+      {/* zsviczian END */}
       <DropdownMenu.Item
         onSelect={() => runAction("LaTeX")}
         icon={LaTeXIcon}

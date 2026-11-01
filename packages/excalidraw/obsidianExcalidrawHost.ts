@@ -12,15 +12,33 @@
  * @see https://github.com/zsviczian/obsidian-excalidraw-plugin
  */
 
+import type { NonDeletedExcalidrawElement } from "@excalidraw/element/types";
+
 import type { MermaidToExcalidrawLibProps } from "./components/TTDDialog/types";
+import type { BinaryFiles } from "./types";
 
 /** Runtime protocol understood by this version of the Excalidraw package. */
-export const OBSIDIAN_EXCALIDRAW_HOST_PROTOCOL_VERSION = 2 as const;
+export const OBSIDIAN_EXCALIDRAW_HOST_PROTOCOL_VERSION = 4 as const; // zsviczian -- plugin #3027 adds guarded SVG diagram insertion
+
+/** zsviczian -- staged diagram data only, never a view or plugin object. */
+export type ObsidianDiagramInsertion = {
+  elements: readonly NonDeletedExcalidrawElement[];
+  files: BinaryFiles | null;
+};
 
 /** Keyboard-blocking lifecycle returned by the host's inline suggester. */
 export interface ObsidianKeyBlocker {
   isBlockingKeys(): boolean;
   close(): void;
+}
+
+/**
+ * Stable host-provided Mermaid service, independent of the dialog's load state.
+ * zsviczian -- PR #472 retains protocol 2's existing { loaded, api } shape.
+ */
+export interface ObsidianMermaidService {
+  loaded: boolean;
+  api: MermaidToExcalidrawLibProps["api"];
 }
 
 /** Plugin-wide capabilities consumed by the Excalidraw package. */
@@ -39,8 +57,17 @@ export interface ObsidianExcalidrawHostAdapter {
   shouldSyncElementLinkWithText(): boolean;
 
   loadFontFromFile(filename: string): Promise<ArrayBuffer | undefined>;
-  getMermaid(): Promise<MermaidToExcalidrawLibProps>;
-  runAction(action: "anyFile" | "LaTeX" | "card"): void;
+  getMermaid(): Promise<ObsidianMermaidService>;
+  /** Lucide requires the initiating editor's ID; no active-view state is retained here. */
+  runAction(
+    action: "anyFile" | "LaTeX" | "card" | "lucide" | "importSVG",
+    editorId?: string,
+  ): void;
+  /** Offer conversion of SVG-backed Mermaid output; null cancels insertion. */
+  prepareMermaidSVGInsert(
+    editorId: string,
+    diagram: ObsidianDiagramInsertion,
+  ): Promise<ObsidianDiagramInsertion | null>;
   getLabel(key: string): string;
   attachInlineLinkSuggester(
     inputEl: HTMLInputElement | HTMLTextAreaElement,
