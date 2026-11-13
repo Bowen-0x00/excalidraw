@@ -17,6 +17,7 @@ import {
 import {
   elementOverlapsWithFrame,
   getTargetFrame,
+  isFrameClippable,
   shouldApplyFrameClip,
 } from "@excalidraw/element";
 
@@ -568,7 +569,8 @@ const _renderStaticScene = ({
     if (
       !(element.frameId || appState.frameToHighlight?.id) ||
       !appState.frameRendering.enabled ||
-      !appState.frameRendering.clip
+      !appState.frameRendering.clip ||
+      !isFrameClippable(element, elementsMap)
     ) {
       return;
     }
