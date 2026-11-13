@@ -200,7 +200,12 @@ const getExtraColors = (): { name: string; value: string }[] => {
 
     core.dispatchSync("excalidrawExtraColors", context);
 
-    return context.colors;
+    return Array.isArray(context.colors)
+      ? context.colors.filter(
+          (c): c is { name: string; value: string } =>
+            Boolean(c) && typeof c.name === "string" && c.name.length > 0,
+        )
+      : [];
   }
   return [];
 };
@@ -407,7 +412,7 @@ const getDynamicCommonShades = () => {
       },
       ownKeys() {
         const extraKeys = getExtraColors().map((c) => c.name);
-        return [...COMMON_KEYS, ...extraKeys];
+        return Array.from(new Set([...COMMON_KEYS, ...extraKeys]));
       },
       getOwnPropertyDescriptor(_, prop) {
         return { configurable: true, enumerable: true, writable: false };
@@ -499,12 +504,17 @@ const createDynamicPalette = (base: Record<string, any>) => {
     },
     ownKeys(target) {
       // Order here determines display order in color picker panel
-      return [
-        ...Reflect.ownKeys(target),
-        ...Reflect.ownKeys(COMMON_ELEMENT_SHADES),
-      ];
+      return Array.from(
+        new Set([
+          ...Reflect.ownKeys(target),
+          ...Reflect.ownKeys(COMMON_ELEMENT_SHADES),
+        ]),
+      );
     },
     getOwnPropertyDescriptor(target, prop) {
+      if (prop in target) {
+        return Object.getOwnPropertyDescriptor(target, prop);
+      }
       return { configurable: true, enumerable: true, writable: false };
     },
   });

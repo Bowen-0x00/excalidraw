@@ -1,6 +1,8 @@
 import {
   applyDarkModeFilter,
   COLOR_PALETTE,
+  DEFAULT_ELEMENT_BACKGROUND_COLOR_PALETTE,
+  DEFAULT_ELEMENT_STROKE_COLOR_PALETTE,
   removeDarkModeFilter,
   rgbToHex,
 } from "@excalidraw/common";
@@ -8,6 +10,45 @@ import {
 describe("COLOR_PALETTE", () => {
   it("color palette doesn't regress", () => {
     expect(COLOR_PALETTE).toMatchSnapshot();
+  });
+
+  it("deduplicates dynamic extra color keys in ownKeys traps", () => {
+    const win = window as unknown as {
+      EA_Core?: { dispatchSync: (name: string, ctx: { colors: Array<{ name: string; value: string }> }) => void };
+    };
+    const prev = win.EA_Core;
+    win.EA_Core = {
+      dispatchSync: (_name, ctx) => {
+        ctx.colors.push(
+          { name: "__spacer_0", value: "transparent" },
+          { name: "__spacer_0", value: "transparent" },
+          { name: "red", value: "#ff0000" },
+          { name: "black", value: "#000000" },
+          { name: "customA", value: "#123456" },
+          { name: "customA", value: "#654321" },
+        );
+      },
+    };
+    try {
+      expect(() => Object.values(COLOR_PALETTE)).not.toThrow();
+      expect(() =>
+        Object.values(DEFAULT_ELEMENT_STROKE_COLOR_PALETTE).flat(),
+      ).not.toThrow();
+      expect(() =>
+        Object.entries(DEFAULT_ELEMENT_BACKGROUND_COLOR_PALETTE),
+      ).not.toThrow();
+      expect(
+        Reflect.ownKeys(DEFAULT_ELEMENT_STROKE_COLOR_PALETTE).filter(
+          (k) => k === "__spacer_0",
+        ),
+      ).toHaveLength(1);
+    } finally {
+      if (prev === undefined) {
+        delete win.EA_Core;
+      } else {
+        win.EA_Core = prev;
+      }
+    }
   });
 });
 

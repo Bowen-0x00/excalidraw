@@ -425,3 +425,72 @@ it("toggles fixed arrowhead size inline in Arrowhead size header", async () => {
     expect(toggleBtn.getAttribute("aria-pressed")).toBe("true");
   });
 });
+
+it("opens ColorPicker hex view without crashing when extra colors contain duplicate keys", async () => {
+  const win = window as unknown as {
+    EA_Core?: {
+      dispatchSync: (
+        name: string,
+        ctx: { colors: Array<{ name: string; value: string }> },
+      ) => boolean;
+    };
+  };
+  const prevEA = win.EA_Core;
+  const prevResizeObserver = globalThis.ResizeObserver;
+  globalThis.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+  win.EA_Core = {
+    dispatchSync: (name, ctx) => {
+      if (name === "excalidrawExtraColors" && Array.isArray(ctx?.colors)) {
+        ctx.colors.push(
+          { name: "__spacer_0", value: "transparent" },
+          { name: "__spacer_0", value: "transparent" },
+          { name: "red", value: "#ff0000" },
+          { name: "black", value: "#000000" },
+          { name: "dupColor", value: "#112233" },
+          { name: "dupColor", value: "#445566" },
+        );
+      }
+      return false;
+    },
+  };
+  try {
+    const { api, container } = await mount();
+    const [rect] = convertToExcalidrawElements([
+      { type: "rectangle", x: 10, y: 10, width: 100, height: 60 },
+    ]);
+    act(() =>
+      api.updateScene({
+        elements: [rect],
+        appState: { selectedElementIds: { [rect.id]: true } },
+        captureUpdate: "IMMEDIATELY",
+      }),
+    );
+
+    const strokeTrigger = await waitFor(() => {
+      const el = container.querySelector<HTMLButtonElement>(
+        'button.color-picker__button.active-color[aria-label*="Stroke"], button.color-picker__button.active-color',
+      );
+      expect(el).not.toBeNull();
+      return el!;
+    });
+    fireEvent.click(strokeTrigger);
+
+    await waitFor(() => {
+      const hexInput = document.querySelector<HTMLInputElement>(
+        "input.color-picker-input",
+      );
+      expect(hexInput).not.toBeNull();
+    });
+  } finally {
+    globalThis.ResizeObserver = prevResizeObserver;
+    if (prevEA === undefined) {
+      delete win.EA_Core;
+    } else {
+      win.EA_Core = prevEA;
+    }
+  }
+});
