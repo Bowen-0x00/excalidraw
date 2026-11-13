@@ -191,6 +191,7 @@ import {
   getSelectedElements,
   getTargetElements,
   isSomeElementSelected,
+  hasStrokeStyle,
 } from "../scene";
 
 import { ShapeCache } from "../../element/src/shape"; //ymjr
@@ -3072,36 +3073,23 @@ export const actionChangeStrokeLineCap = register({
   label: "Change stroke line cap",
   trackEvent: false,
   perform: (elements, appState, value) => {
+    const capValue = (value ?? "none") as "none" | "butt" | "round" | "square";
     return {
       elements: changeProperty(elements, appState, (el) => {
-        if (!el) {
+        if (!el || !hasStrokeStyle(el.type)) {
           return el;
         }
-
-        // Ensure customData object exists
-        if (!el.customData) {
-          // @ts-ignore
-          el.customData = {};
-        }
-
-        if (value === "none") {
-          // If None is selected, delete property
-          // @ts-ignore
-          delete el.customData.strokeLineCap;
-
-          // Optional: if customData is empty, delete customData itself
-          // if (Object.keys(el.customData).length === 0) {
-          //   delete el.customData;
-          // }
+        const newCustomData = el.customData ? { ...el.customData } : {};
+        if (capValue === "none") {
+          delete newCustomData.strokeLineCap;
         } else {
-        // Otherwise assign value
-          // @ts-ignore
-          el.customData.strokeLineCap = value;
+          newCustomData.strokeLineCap = capValue;
         }
-
-        ShapeCache.delete(el);
-        return el;
+        const newEl = newElementWith(el, { customData: newCustomData });
+        ShapeCache.delete(newEl);
+        return newEl;
       }),
+      appState: { currentItemStrokeLineCap: capValue },
       captureUpdate: CaptureUpdateAction.IMMEDIATELY,
     };
   },
@@ -3113,22 +3101,26 @@ export const actionChangeStrokeLineCap = register({
           <RadioSelection
             group="StrokeLineCap"
             options={[
-              { value: "none", text: "None", icon: NoneIcon }, // None option
+              { value: "none", text: "None", icon: NoneIcon },
               { value: "butt", text: "Butt", icon: ButtCapIcon },
               { value: "round", text: "Round", icon: RoundCapIcon },
               { value: "square", text: "Square", icon: SquareCapIcon },
             ]}
-            value={
-              getFormValue(
-                elements,
-                app,
-                (element) =>
-                  // Return value if set, fallback to "none"
-                  (element?.customData as any)?.strokeLineCap ?? "none",
-                true, // Allow mixed state
-                "none", // Fallback default none
-              ) ?? undefined
-            }
+            value={getFormValue<string | null>(
+              elements,
+              app,
+              (element) =>
+                hasStrokeStyle(element.type)
+                  ? typeof element.customData?.strokeLineCap === "string"
+                    ? element.customData.strokeLineCap
+                    : "none"
+                  : null,
+              (element) => hasStrokeStyle(element.type),
+              (hasSelection) =>
+                hasSelection
+                  ? null
+                  : appState.currentItemStrokeLineCap || "none",
+            )}
             onChange={(value) => updateData(value)}
           />
         </div>
@@ -3144,30 +3136,23 @@ export const actionChangeStrokeLineJoin = register({
   label: "Change stroke line join",
   trackEvent: false,
   perform: (elements, appState, value) => {
+    const joinValue = (value ?? "none") as "none" | "miter" | "round" | "bevel";
     return {
       elements: changeProperty(elements, appState, (el) => {
-        if (!el) {
+        if (!el || !hasStrokeStyle(el.type)) {
           return el;
         }
-
-        if (!el.customData) {
-          // @ts-ignore
-          el.customData = {};
-        }
-
-        if (value === "none") {
-          // If None is selected, delete property
-          // @ts-ignore
-          delete el.customData.strokeLineJoin;
+        const newCustomData = el.customData ? { ...el.customData } : {};
+        if (joinValue === "none") {
+          delete newCustomData.strokeLineJoin;
         } else {
-        // Otherwise assign value
-          // @ts-ignore
-          el.customData.strokeLineJoin = value;
+          newCustomData.strokeLineJoin = joinValue;
         }
-
-        ShapeCache.delete(el);
-        return el;
+        const newEl = newElementWith(el, { customData: newCustomData });
+        ShapeCache.delete(newEl);
+        return newEl;
       }),
+      appState: { currentItemStrokeLineJoin: joinValue },
       captureUpdate: CaptureUpdateAction.IMMEDIATELY,
     };
   },
@@ -3179,22 +3164,26 @@ export const actionChangeStrokeLineJoin = register({
           <RadioSelection
             group="StrokeLineJoin"
             options={[
-              { value: "none", text: "None", icon: NoneIcon }, // None option
+              { value: "none", text: "None", icon: NoneIcon },
               { value: "miter", text: "Miter", icon: MiterJoinIcon },
               { value: "round", text: "Round", icon: RoundJoinIcon },
               { value: "bevel", text: "Bevel", icon: BevelJoinIcon },
             ]}
-            value={
-              getFormValue(
-                elements,
-                app,
-                (element) =>
-                  // Return value if set, fallback to "none"
-                  (element?.customData as any)?.strokeLineJoin ?? "none",
-                true,
-                "none",
-              ) ?? undefined
-            }
+            value={getFormValue<string | null>(
+              elements,
+              app,
+              (element) =>
+                hasStrokeStyle(element.type)
+                  ? typeof element.customData?.strokeLineJoin === "string"
+                    ? element.customData.strokeLineJoin
+                    : "none"
+                  : null,
+              (element) => hasStrokeStyle(element.type),
+              (hasSelection) =>
+                hasSelection
+                  ? null
+                  : appState.currentItemStrokeLineJoin || "none",
+            )}
             onChange={(value) => updateData(value)}
           />
         </div>

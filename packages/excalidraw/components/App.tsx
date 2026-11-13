@@ -9881,6 +9881,28 @@ class App extends React.Component<AppProps, AppState> {
           lineCrossings: this.state.currentItemLineCrossings,
         };
       }
+      if (
+        this.state.currentItemStrokeLineCap &&
+        this.state.currentItemStrokeLineCap !== "none"
+      ) {
+        //ymjr
+        //@ts-ignore
+        element.customData = {
+          ...element.customData,
+          strokeLineCap: this.state.currentItemStrokeLineCap,
+        };
+      }
+      if (
+        this.state.currentItemStrokeLineJoin &&
+        this.state.currentItemStrokeLineJoin !== "none"
+      ) {
+        //ymjr
+        //@ts-ignore
+        element.customData = {
+          ...element.customData,
+          strokeLineJoin: this.state.currentItemStrokeLineJoin,
+        };
+      }
       const point = pointFrom<GlobalPoint>(
         pointerDownState.origin.x,
         pointerDownState.origin.y,
@@ -10091,6 +10113,29 @@ class App extends React.Component<AppProps, AppState> {
       //   //@ts-ignore
       //   element.customData = { ...element.customData, curveArrow: true };
       // }
+    }
+    if (element.type !== "selection" && element.type !== "stickynote") {
+      //ymjr
+      if (
+        this.state.currentItemStrokeLineCap &&
+        this.state.currentItemStrokeLineCap !== "none"
+      ) {
+        //@ts-ignore
+        element.customData = {
+          ...element.customData,
+          strokeLineCap: this.state.currentItemStrokeLineCap,
+        };
+      }
+      if (
+        this.state.currentItemStrokeLineJoin &&
+        this.state.currentItemStrokeLineJoin !== "none"
+      ) {
+        //@ts-ignore
+        element.customData = {
+          ...element.customData,
+          strokeLineJoin: this.state.currentItemStrokeLineJoin,
+        };
+      }
     }
 
     if (element.type === "selection") {

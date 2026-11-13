@@ -12,6 +12,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import {
   Excalidraw,
   convertToExcalidrawElements,
+  exportToSvg,
   restoreElements,
 } from "@excalidraw/excalidraw";
 import { DEFAULT_SIDEBAR, FONT_FAMILY } from "@excalidraw/common";
@@ -322,4 +323,60 @@ it("library updates render independently of the drawing", async () => {
     expect(document.querySelector(".library-unit__dragger")).not.toBeNull(),
   );
   expect(api.getAppState().openSidebar?.name).toBe(DEFAULT_SIDEBAR.name);
+});
+
+it("shows Stroke line cap and join controls for selected arrows and exports sharp mitered SVG", async () => {
+  const { api, container } = await mount();
+  const [arrow] = convertToExcalidrawElements([
+    {
+      type: "arrow",
+      x: 10,
+      y: 20,
+      width: 120,
+      height: 0,
+      roughness: 0,
+      strokeWidth: 4,
+      endArrowhead: "arrow",
+    },
+  ]);
+  act(() =>
+    api.updateScene({
+      elements: [arrow],
+      appState: { selectedElementIds: { [arrow.id]: true } },
+      captureUpdate: "IMMEDIATELY",
+    }),
+  );
+
+  const buttBtn = await waitFor(() => {
+    const el = container.querySelector<HTMLElement>(
+      'input[name="StrokeLineCap"][value="butt"], [title="Butt"]',
+    );
+    expect(el).not.toBeNull();
+    return el!;
+  });
+  const miterBtn = container.querySelector<HTMLElement>(
+    'input[name="StrokeLineJoin"][value="miter"], [title="Miter"]',
+  )!;
+  expect(miterBtn).not.toBeNull();
+
+  fireEvent.click(buttBtn);
+  fireEvent.click(miterBtn);
+
+  await waitFor(() => {
+    const updated = api.getSceneElements().find((el) => el.id === arrow.id)!;
+    expect(updated.customData?.strokeLineCap).toBe("butt");
+    expect(updated.customData?.strokeLineJoin).toBe("miter");
+  });
+
+  const svg = await exportToSvg({
+    elements: api.getSceneElements(),
+    appState: api.getAppState(),
+    files: api.getFiles(),
+  });
+  const arrowGroup = svg.querySelector(`[data-id="${arrow.id}"]`)!;
+  expect(arrowGroup).not.toBeNull();
+  expect(arrowGroup.getAttribute("stroke-linecap")).toBe("butt");
+  expect(arrowGroup.getAttribute("stroke-linejoin")).toBe("miter");
+  // 1 shaft + 1 joined V-arrowhead = 2 child <g> nodes
+  expect(arrowGroup.querySelectorAll(":scope > g")).toHaveLength(2);
 });

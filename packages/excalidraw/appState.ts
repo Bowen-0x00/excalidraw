@@ -61,6 +61,8 @@ export const getDefaultAppState = (): Omit<
     currentItemFrameRole: null, //zsviczian
     currentItemSnap: "none", //ymjr
     currentItemLineCrossings: "none", //ymjr
+    currentItemStrokeLineCap: "none", //ymjr
+    currentItemStrokeLineJoin: "none", //ymjr
     cursorButton: "up",
     activeEmbeddable: null,
     newElement: null,
@@ -248,6 +250,8 @@ const APP_STATE_STORAGE_CONF = (<
   currentItemFrameRole: { browser: true, export: false, server: false }, //zsviczian
   currentItemSnap: { browser: true, export: false, server: false }, //ymjr
   currentItemLineCrossings: { browser: true, export: false, server: false }, //ymjr
+  currentItemStrokeLineCap: { browser: true, export: false, server: false }, //ymjr
+  currentItemStrokeLineJoin: { browser: true, export: false, server: false }, //ymjr
   cursorButton: { browser: true, export: false, server: false },
   activeEmbeddable: { browser: false, export: false, server: false },
   newElement: { browser: false, export: false, server: false },

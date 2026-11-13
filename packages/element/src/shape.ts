@@ -89,7 +89,7 @@ import {
   buildLinearPathWithCrossings,
   type LineCrossingMode,
 } from "./crossings";
-import type { Drawable, Options } from "roughjs/bin/core";
+import type { Drawable, Op, Options } from "roughjs/bin/core";
 import type { Point as RoughPoint } from "roughjs/bin/geometry";
 
 export class ShapeCache {
@@ -357,16 +357,119 @@ const generateArrowheadCardinalityOne = (
   return [generator.line(x3, y3, x4, y4, lineOptions)];
 };
 
+type JoinedDrawable = Drawable & { closeStrokePath?: boolean };
+
+// ymjr: Merge consecutive single-stroke edge subpaths into one continuous polyline so canvas/SVG lineJoin applies at corners.
+const mergeContinuousPathOps = (ops: Op[]): Op[] => {
+  const merged: Op[] = [];
+  for (const op of ops) {
+    if (op.op === "move" && merged.length > 0) {
+      continue;
+    }
+    merged.push(op);
+  }
+  return merged;
+};
+
+const dedupeClosingPoint = (
+  points: readonly [number, number][],
+): [number, number][] => {
+  if (
+    points.length > 2 &&
+    points[0][0] === points[points.length - 1][0] &&
+    points[0][1] === points[points.length - 1][1]
+  ) {
+    return points.slice(0, -1) as [number, number][];
+  }
+  return [...points];
+};
+
+const generateJoinedLinearPath = (
+  generator: RoughGenerator,
+  rawPoints: readonly [number, number][],
+  options: Options,
+  closed = false,
+  allowLineTo = true,
+): JoinedDrawable => {
+  const points = closed ? dedupeClosingPoint(rawPoints) : [...rawPoints];
+  const passOptions: Options = {
+    ...options,
+    disableMultiStroke: true,
+    preserveVertices: true,
+  };
+  const buildPassOps = (opts: Options): Op[] => {
+    if (allowLineTo && opts.roughness === 0) {
+      return points.map(([px, py], idx) => ({
+        op: idx === 0 ? "move" : "lineTo",
+        data: [px, py],
+      }));
+    }
+    const pass = closed
+      ? generator.polygon(points as unknown as RoughPoint[], opts)
+      : generator.linearPath(points as unknown as RoughPoint[], opts);
+    const pathSet = pass.sets.find((s) => s.type === "path");
+    return pathSet ? mergeContinuousPathOps(pathSet.ops) : [];
+  };
+
+  const ops = [...buildPassOps(passOptions)];
+  if (!options.disableMultiStroke && options.roughness !== 0) {
+    ops.push(
+      ...buildPassOps({
+        ...passOptions,
+        seed: (options.seed ?? 0) + 1,
+      }),
+    );
+  }
+  const base = closed
+    ? generator.polygon(points as unknown as RoughPoint[], {
+        ...passOptions,
+        stroke: "none",
+      })
+    : generator.linearPath(points as unknown as RoughPoint[], {
+        ...passOptions,
+        stroke: "none",
+      });
+  const sets = [
+    ...base.sets.filter((s) => s.type !== "path"),
+    ...(options.stroke !== "none" ? [{ type: "path" as const, ops }] : []),
+  ];
+  const drawable: JoinedDrawable = {
+    shape: closed ? "polygon" : "linearPath",
+    options: base.options,
+    sets,
+  };
+  if (closed && (options.disableMultiStroke || options.roughness === 0)) {
+    drawable.closeStrokePath = true;
+  }
+  return drawable;
+};
+
 const generateArrowheadLinesToTip = (
   generator: RoughGenerator,
   arrowheadPoints: number[] | null,
   lineOptions: Options,
+  joinTip = false,
 ) => {
   if (arrowheadPoints === null) {
     return [];
   }
 
   const [x2, y2, x3, y3, x4, y4] = arrowheadPoints;
+
+  if (joinTip) {
+    return [
+      generateJoinedLinearPath(
+        generator,
+        [
+          [x3, y3],
+          [x2, y2],
+          [x4, y4],
+        ],
+        lineOptions,
+        false,
+      ),
+    ];
+  }
 
   return [
     generator.line(x3, y3, x2, y2, lineOptions),
@@ -464,6 +567,7 @@ const getArrowheadShapes = (
     options.strokeWidth = element.customData.arrowHeadLineWidth;
   }
 
+  const joinCorners = Boolean(element.customData?.strokeLineJoin); //ymjr
   const strokeColor = applyDarkModeFilter(element.strokeColor, isDarkMode);
   const backgroundFillColor = applyDarkModeFilter(
     canvasBackgroundColor,
@@ -508,14 +612,25 @@ const getArrowheadShapes = (
 
       return [
         fillArrowheadOutline(
-          generator.polygon(
-            [
-              [x, y],
-              [x2, y2],
-              [x3, y3],
-            ],
-            triangleOptions,
-          ),
+          joinCorners
+            ? generateJoinedLinearPath(
+                generator,
+                [
+                  [x2, y2],
+                  [x, y],
+                  [x3, y3],
+                ],
+                triangleOptions,
+                true,
+              )
+            : generator.polygon(
+                [
+                  [x, y],
+                  [x2, y2],
+                  [x3, y3],
+                ],
+                triangleOptions,
+              ),
           arrowhead === "triangle_outline" ? backgroundFillColor : strokeColor,
         ),
       ];
@@ -548,15 +663,27 @@ const getArrowheadShapes = (
 
       return [
         fillArrowheadOutline(
-          generator.polygon(
-            [
-              [x, y],
-              [x2, y2],
-              [x3, y3],
-              [x4, y4],
-            ],
-            diamondOptions,
-          ),
+          joinCorners
+            ? generateJoinedLinearPath(
+                generator,
+                [
+                  [x, y],
+                  [x2, y2],
+                  [x3, y3],
+                  [x4, y4],
+                ],
+                diamondOptions,
+                true,
+              )
+            : generator.polygon(
+                [
+                  [x, y],
+                  [x2, y2],
+                  [x3, y3],
+                  [x4, y4],
+                ],
+                diamondOptions,
+              ),
           arrowhead === "diamond_outline" ? backgroundFillColor : strokeColor,
         ),
       ];
@@ -572,6 +699,7 @@ const getArrowheadShapes = (
         generator,
         getArrowheadPoints(element, shape, position, arrowhead),
         getArrowheadLineOptions(element, options),
+        joinCorners,
       );
     case "cardinality_one_or_many": {
       const lineOptions = getArrowheadLineOptions(element, options);
@@ -581,6 +709,7 @@ const getArrowheadShapes = (
           generator,
           getArrowheadPoints(element, shape, position, "cardinality_many"),
           lineOptions,
+          joinCorners,
         ),
         ...generateArrowheadCardinalityOne(
           generator,
@@ -656,6 +785,7 @@ const getArrowheadShapes = (
           generator,
           getArrowheadPoints(element, shape, position, "cardinality_many"),
           lineOptions,
+          joinCorners,
         ),
         ...generateArrowheadOutlineCircle(
           generator,
@@ -694,25 +824,38 @@ const getArrowheadShapes = (
       const innerX = midX + (x2 - midX) * indentFactor;
       const innerY = midY + (y2 - midY) * indentFactor;
 
+      const chevronOptions = {
+        ...options,
+        fill:
+          arrowhead === "chevron_outline"
+            ? canvasBackgroundColor
+            : strokeColor,
+        fillStyle: "solid",
+        roughness: Math.min(1, options.roughness || 0),
+      };
       return [
-        generator.polygon(
-          [
-            [x3, y3], // Left wing endpoint
-            [x2, y2], // Arrow tip
-            [x4, y4], // Right wing endpoint
-            [innerX, innerY], // Tail indent point
-            [x3, y3], // Close polygon
-          ],
-          {
-            ...options,
-            fill:
-              arrowhead === "chevron_outline"
-                ? canvasBackgroundColor
-                : strokeColor,
-            fillStyle: "solid",
-            roughness: Math.min(1, options.roughness || 0),
-          },
-        ),
+        joinCorners
+          ? generateJoinedLinearPath(
+              generator,
+              [
+                [x3, y3],
+                [x2, y2],
+                [x4, y4],
+                [innerX, innerY],
+              ],
+              chevronOptions,
+              true,
+            )
+          : generator.polygon(
+              [
+                [x3, y3], // Left wing endpoint
+                [x2, y2], // Arrow tip
+                [x4, y4], // Right wing endpoint
+                [innerX, innerY], // Tail indent point
+                [x3, y3], // Close polygon
+              ],
+              chevronOptions,
+            ),
       ];
     }
 
@@ -727,25 +870,37 @@ const getArrowheadShapes = (
       // Force solid line for arrowhead outline
       delete options.strokeLineDash;
 
+      const blockOptions = {
+        ...options,
+        fill:
+          arrowhead === "block_arrow_outline"
+            ? canvasBackgroundColor
+            : strokeColor,
+        fillStyle: "solid",
+        // Slightly lower roughness for sharper block arrow edges
+        roughness: Math.min(0.5, options.roughness || 0),
+      };
       return [
-        generator.polygon(
-          [
-            [x2, y2], // Tip
-            [x3, y3], // Left wing
-            [x4, y4], // Right wing
-            [x2, y2], // Close back to tip, forming flat-base triangle
-          ],
-          {
-            ...options,
-            fill:
-              arrowhead === "block_arrow_outline"
-                ? canvasBackgroundColor
-                : strokeColor,
-            fillStyle: "solid",
-            // Slightly lower roughness for sharper block arrow edges
-            roughness: Math.min(0.5, options.roughness || 0),
-          },
-        ),
+        joinCorners
+          ? generateJoinedLinearPath(
+              generator,
+              [
+                [x3, y3],
+                [x2, y2],
+                [x4, y4],
+              ],
+              blockOptions,
+              true,
+            )
+          : generator.polygon(
+              [
+                [x2, y2], // Tip
+                [x3, y3], // Left wing
+                [x4, y4], // Right wing
+                [x2, y2], // Close back to tip, forming flat-base triangle
+              ],
+              blockOptions,
+            ),
       ];
     }
     case "bar":
@@ -756,6 +911,7 @@ const getArrowheadShapes = (
         generator,
         getArrowheadPoints(element, shape, position, arrowhead),
         getArrowheadLineOptions(element, options),
+        joinCorners,
       );
       return shapes;
     }
@@ -1190,21 +1346,34 @@ const _generateElementShape = (
           );
         }
       } else {
-        shape = generator.rectangle(
-          0,
-          0,
-          element.width,
-          element.height,
-          generateRoughOptions(
-            modifyIframeLikeForRoughOptions(
-              element,
-              isExporting,
-              embedsValidationStatus,
-            ),
-            false,
-            isDarkMode,
+        const rectOptions = generateRoughOptions(
+          modifyIframeLikeForRoughOptions(
+            element,
+            isExporting,
+            embedsValidationStatus,
           ),
+          false,
+          isDarkMode,
         );
+        shape = element.customData?.strokeLineJoin
+          ? generateJoinedLinearPath(
+              generator,
+              [
+                [0, 0],
+                [element.width, 0],
+                [element.width, element.height],
+                [0, element.height],
+              ],
+              rectOptions,
+              true,
+            )
+          : generator.rectangle(
+              0,
+              0,
+              element.width,
+              element.height,
+              rectOptions,
+            );
       }
       return shape;
     }
@@ -1243,15 +1412,16 @@ const _generateElementShape = (
           generateRoughOptions(element, true, isDarkMode),
         );
       } else {
-        shape = generator.polygon(
-          [
-            [topX, topY],
-            [rightX, rightY],
-            [bottomX, bottomY],
-            [leftX, leftY],
-          ],
-          generateRoughOptions(element, false, isDarkMode),
-        );
+        const diamondPoints: [number, number][] = [
+          [topX, topY],
+          [rightX, rightY],
+          [bottomX, bottomY],
+          [leftX, leftY],
+        ];
+        const diamondOptions = generateRoughOptions(element, false, isDarkMode);
+        shape = element.customData?.strokeLineJoin
+          ? generateJoinedLinearPath(generator, diamondPoints, diamondOptions, true)
+          : generator.polygon(diamondPoints, diamondOptions);
       }
       return shape;
     }
@@ -1430,17 +1600,27 @@ const _generateElementShape = (
           ? element.backgroundColor
           : element.strokeColor;
 
+        const blockBodyOptions = {
+          ...options,
+          fill: fillColor,
+          fillStyle: element.fillStyle ?? "solid",
+          stroke: element.strokeColor,
+          strokeWidth: element.strokeWidth,
+          roughness: Math.min(0.5, options.roughness || 0),
+        };
         shape = [
-          generator.polygon(arrowPoints as unknown as RoughPoint[], {
-            ...options,
-            fill: fillColor,
-            fillStyle: element.fillStyle ?? "solid",
-            stroke: element.strokeColor,
-            strokeWidth: element.strokeWidth,
-            roughness: Math.min(0.5, options.roughness || 0),
-          }),
+          element.customData?.strokeLineJoin
+            ? generateJoinedLinearPath(
+                generator,
+                arrowPoints,
+                blockBodyOptions,
+                true,
+              )
+            : generator.polygon(
+                arrowPoints as unknown as RoughPoint[],
+                blockBodyOptions,
+              ),
         ];
-
         return shape;
       } else if (isElbowArrow(element)) {
 
@@ -1495,14 +1675,34 @@ const _generateElementShape = (
             ),
           ];
         } else if (!element.roundness) {
-          shape = options.fill
+          shape = element.customData?.strokeLineJoin
+            ? [
+                generateJoinedLinearPath(
+                  generator,
+                  points as unknown as [number, number][],
+                  options,
+                  Boolean(options.fill),
+                  false,
+                ),
+              ]
+            : options.fill
             ? [generator.polygon(points as unknown as RoughPoint[], options)]
             : [generator.linearPath(points as unknown as RoughPoint[], options)];
         } else {
           shape = [generator.curve(points as unknown as RoughPoint[], options)];
         }
       } else if (!element.roundness) {
-        if (options.fill) {
+        if (element.customData?.strokeLineJoin) {
+          shape = [
+            generateJoinedLinearPath(
+              generator,
+              points as unknown as [number, number][],
+              options,
+              Boolean(options.fill),
+              false,
+            ),
+          ];
+        } else if (options.fill) {
           shape = [
             generator.polygon(points as unknown as RoughPoint[], options),
           ];

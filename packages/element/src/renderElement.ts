@@ -1,4 +1,5 @@
 import rough from "roughjs/bin/rough";
+import type { Drawable } from "roughjs/bin/core";
 
 import {
   clamp,
@@ -121,8 +122,10 @@ const getCanvasPadding = (element: ExcalidrawElement) => {
     case "text":
       return element.fontSize / 2;
     case "arrow":
-      if (element.endArrowhead || element.endArrowhead) {
-        return 40;
+      if (element.endArrowhead || element.startArrowhead) {
+        return element.customData?.strokeLineJoin === "miter"
+          ? Math.max(40, element.strokeWidth * 3)
+          : 40;
       }
       return 20;
     default:
@@ -502,6 +505,59 @@ const drawElementOnCanvas = (
     });
     if (isIntercepted) return;
   }
+  // ymjr: Close single-loop stroke paths when closeStrokePath is set so Canvas lineJoin applies at the closing vertex.
+  const drawShape = (shape: Drawable & { closeStrokePath?: boolean }) => {
+    if (!shape.closeStrokePath) {
+      rc.draw(shape);
+      return;
+    }
+    const opts = shape.options;
+    const precision = opts.fixedDecimalPlaceDigits;
+    for (const drawing of shape.sets || []) {
+      if (drawing.type !== "path") {
+        rc.draw({ ...shape, sets: [drawing] });
+        continue;
+      }
+      context.save();
+      context.strokeStyle = opts.stroke === "none" ? "transparent" : opts.stroke;
+      context.lineWidth = opts.strokeWidth;
+      if (opts.strokeLineDash) {
+        context.setLineDash(opts.strokeLineDash);
+      }
+      if (opts.strokeLineDashOffset) {
+        context.lineDashOffset = opts.strokeLineDashOffset;
+      }
+      context.beginPath();
+      for (const item of drawing.ops) {
+        const data =
+          typeof precision === "number" && precision >= 0
+            ? item.data.map((d: number) => +d.toFixed(precision))
+            : item.data;
+        switch (item.op) {
+          case "move":
+            context.moveTo(data[0], data[1]);
+            break;
+          case "bcurveTo":
+            context.bezierCurveTo(
+              data[0],
+              data[1],
+              data[2],
+              data[3],
+              data[4],
+              data[5],
+            );
+            break;
+          case "lineTo":
+            context.lineTo(data[0], data[1]);
+            break;
+        }
+      }
+      context.closePath();
+      context.stroke();
+      context.restore();
+    }
+  };
+
   switch (element.type) {
     case "stickynote": {
       withSavedContext(context, () => {
@@ -549,11 +605,11 @@ const drawElementOnCanvas = (
         renderConfig,
       ); //ymjr
       if (Array.isArray(shapeOrShapes)) {
-        shapeOrShapes.forEach((shape) => rc.draw(shape));
+        shapeOrShapes.forEach((shape) => drawShape(shape));
       } else if (shapeOrShapes) {
         // zsviczian -- ymjr side-owned borders keep fills native and avoid doubled shared edges.
         if (drawManagedTableRectangle(element, shapeOrShapes, rc, context, renderConfig.theme === THEME.DARK)) break;
-        rc.draw(shapeOrShapes);
+        drawShape(shapeOrShapes);
       }
       break;
     }
@@ -564,7 +620,7 @@ const drawElementOnCanvas = (
 
       ShapeCache.generateElementShape(element, renderConfig, elementsMap).forEach(
         (shape) => {
-          rc.draw(shape);
+          drawShape(shape);
         },
       );
 

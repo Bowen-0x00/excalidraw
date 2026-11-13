@@ -493,6 +493,8 @@ export interface AppState {
   currentItemFrameRole: ExcalidrawFrameLikeElement["frameRole"] | null; //zsviczian
   currentItemSnap: string; //ymjr
   currentItemLineCrossings: "none" | "arc" | "gap" | "dot"; //ymjr
+  currentItemStrokeLineCap: "none" | "butt" | "round" | "square"; //ymjr
+  currentItemStrokeLineJoin: "none" | "miter" | "round" | "bevel"; //ymjr
   viewBackgroundColor: string;
   scrollX: number;
   scrollY: number;

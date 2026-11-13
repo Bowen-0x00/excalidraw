@@ -8,8 +8,9 @@ import {
   generateElbowArrowShape,
   ShapeCache,
 } from "../src/shape";
+import { newElementWith } from "../src/mutateElement";
 
-import type { Op } from "roughjs/bin/core";
+import type { Drawable, Op } from "roughjs/bin/core";
 
 describe("arrowhead shapes", () => {
   it.each(["triangle", "diamond_outline", "circle"] as const)(
@@ -30,6 +31,48 @@ describe("arrowhead shapes", () => {
       expect(outline.type).toBe("path");
       // the fill only joins up the outline's curves
       expect(getCurves(fill.ops)).toEqual(getCurves(outline.ops));
+    },
+  );
+
+  it("builds a single continuous tip-joined arrowhead path when strokeLineJoin is set", () => {
+    const arrow = newElementWith(
+      API.createElement({
+        type: "arrow",
+        points: [pointFrom<LocalPoint>(0, 0), pointFrom<LocalPoint>(100, 0)],
+        endArrowhead: "arrow",
+        roughness: 0,
+      }),
+      { customData: { strokeLineJoin: "miter", strokeLineCap: "butt" } },
+    );
+    const shapes = ShapeCache.generateElementShape(arrow, null);
+    // 1 shaft + 1 joined V-arrowhead (instead of 2 disconnected lines)
+    expect(shapes).toHaveLength(2);
+    const headPath = shapes[1].sets.find((s) => s.type === "path")!;
+    expect(headPath.ops.map((op) => op.op)).toEqual([
+      "move",
+      "lineTo",
+      "lineTo",
+    ]);
+  });
+
+  it.each(["triangle", "chevron"] as const)(
+    "marks closed %s arrowhead path for stroke closing when strokeLineJoin is set",
+    (arrowhead) => {
+      const arrow = newElementWith(
+        API.createElement({
+          type: "arrow",
+          points: [pointFrom<LocalPoint>(0, 0), pointFrom<LocalPoint>(100, 0)],
+          endArrowhead: arrowhead,
+          roughness: 0,
+        }),
+        { customData: { strokeLineJoin: "miter", strokeLineCap: "butt" } },
+      );
+      const [, head] = ShapeCache.generateElementShape(arrow, null) as Array<
+        Drawable & { closeStrokePath?: boolean }
+      >;
+      expect(head.closeStrokePath).toBe(true);
+      const outline = head.sets.find((s) => s.type === "path")!;
+      expect(outline.ops.filter((op) => op.op === "move")).toHaveLength(1);
     },
   );
 });

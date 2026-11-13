@@ -174,7 +174,13 @@ export const SelectedShapeActions = ({
 
       {predicates.strokeWidth && renderAction("changeStrokeWidth")}
 
-      {predicates.strokeStyle && <>{renderAction("changeStrokeStyle")}</>}
+      {predicates.strokeStyle && (
+        <>
+          {renderAction("changeStrokeStyle")}
+          {renderAction("changeStrokeLineCap") /*ymjr*/}
+          {renderAction("changeStrokeLineJoin") /*ymjr*/}
+        </>
+      )}
 
       {predicates.freedrawMode && renderAction("changeFreedrawMode")}
 
@@ -185,8 +191,6 @@ export const SelectedShapeActions = ({
           {renderAction("changeRoundness")}
           {renderAction("changeRoundnessValue") /*ymjr*/}
           {renderAction("changeRoundnessType") /*ymjr*/}
-          {renderAction("changeStrokeLineCap") /*ymjr*/}
-          {renderAction("changeStrokeLineJoin") /*ymjr*/}
         </>
       )}
 
@@ -326,7 +330,11 @@ const CombinedShapeProperties = ({
                 predicates.freedrawMode && renderAction("changeFreedrawMode")
               }
               {predicates.strokeStyle && (
-                <>{renderAction("changeStrokeStyle")}</>
+                <>
+                  {renderAction("changeStrokeStyle")}
+                  {renderAction("changeStrokeLineCap") /*ymjr*/}
+                  {renderAction("changeStrokeLineJoin") /*ymjr*/}
+                </>
               )}
               {predicates.sloppiness && <>{renderAction("changeSloppiness")}</>}
               {predicates.roundness && renderAction("changeRoundness")}

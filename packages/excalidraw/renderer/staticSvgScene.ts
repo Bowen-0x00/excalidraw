@@ -61,18 +61,29 @@ import type { RoughSVG } from "roughjs/bin/svg";
 
 const roughSVGDrawWithPrecision = (
   rsvg: RoughSVG,
-  drawable: Drawable,
+  drawable: Drawable & { closeStrokePath?: boolean },
   precision?: number,
 ) => {
-  if (typeof precision === "undefined") {
-    return rsvg.draw(drawable);
+  const pshape: Drawable =
+    typeof precision === "undefined"
+      ? drawable
+      : {
+          sets: drawable.sets,
+          shape: drawable.shape,
+          options: { ...drawable.options, fixedDecimalPlaceDigits: precision },
+        };
+  const node = rsvg.draw(pshape);
+  // ymjr: Close continuous polygon stroke paths in SVG so stroke-linejoin applies at the start/end vertex.
+  if (drawable.closeStrokePath) {
+    node.querySelectorAll("path").forEach((pathEl) => {
+      const fillAttr = pathEl.getAttribute("fill");
+      const d = pathEl.getAttribute("d");
+      if (d && (!fillAttr || fillAttr === "none") && !/[zZ]\s*$/.test(d)) {
+        pathEl.setAttribute("d", `${d} Z`);
+      }
+    });
   }
-  const pshape: Drawable = {
-    sets: drawable.sets,
-    shape: drawable.shape,
-    options: { ...drawable.options, fixedDecimalPlaceDigits: precision },
-  };
-  return rsvg.draw(pshape);
+  return node;
 };
 
 const maybeWrapNodesInFrameClipPath = (
@@ -310,7 +321,16 @@ const renderElementToSvg = async (
         if (opacity !== 1) {
           group.setAttribute("opacity", `${opacity}`);
         }
-        group.setAttribute("stroke-linecap", "round");
+        group.setAttribute(
+          "stroke-linecap",
+          element.customData?.strokeLineCap || "round",
+        );
+        if (element.customData?.strokeLineJoin) {
+          group.setAttribute(
+            "stroke-linejoin",
+            element.customData.strokeLineJoin,
+          );
+        }
         group.setAttribute(
           "transform",
           `translate(${offsetX || 0} ${
@@ -341,7 +361,16 @@ const renderElementToSvg = async (
           node.setAttribute("fill-opacity", `${opacity}`);
         }
       }
-      node.setAttribute("stroke-linecap", "round");
+      node.setAttribute(
+        "stroke-linecap",
+        element.customData?.strokeLineCap || "round",
+      );
+      if (element.customData?.strokeLineJoin) {
+        node.setAttribute(
+          "stroke-linejoin",
+          element.customData.strokeLineJoin,
+        );
+      }
       node.setAttribute(
         "transform",
         `translate(${offsetX || 0} ${
@@ -374,7 +403,16 @@ const renderElementToSvg = async (
         node.setAttribute("stroke-opacity", `${opacity}`);
         node.setAttribute("fill-opacity", `${opacity}`);
       }
-      node.setAttribute("stroke-linecap", "round");
+      node.setAttribute(
+        "stroke-linecap",
+        element.customData?.strokeLineCap || "round",
+      );
+      if (element.customData?.strokeLineJoin) {
+        node.setAttribute(
+          "stroke-linejoin",
+          element.customData.strokeLineJoin,
+        );
+      }
       node.setAttribute(
         "transform",
         `translate(${offsetX || 0} ${
@@ -407,7 +445,16 @@ const renderElementToSvg = async (
         shape,
         MAX_DECIMALS_FOR_SVG_EXPORT,
       );
-      embeddableNode.setAttribute("stroke-linecap", "round");
+      embeddableNode.setAttribute(
+        "stroke-linecap",
+        element.customData?.strokeLineCap || "round",
+      );
+      if (element.customData?.strokeLineJoin) {
+        embeddableNode.setAttribute(
+          "stroke-linejoin",
+          element.customData.strokeLineJoin,
+        );
+      }
       embeddableNode.setAttribute(
         "transform",
         `translate(${offsetX || 0} ${
@@ -534,8 +581,16 @@ const renderElementToSvg = async (
       if (boundText) {
         group.setAttribute("mask", `url(#mask-${element.id})`);
       }
-      group.setAttribute("stroke-linecap", "round");
-
+      group.setAttribute(
+        "stroke-linecap",
+        element.customData?.strokeLineCap || "round",
+      );
+      if (element.customData?.strokeLineJoin) {
+        group.setAttribute(
+          "stroke-linejoin",
+          element.customData.strokeLineJoin,
+        );
+      }
       const shapes = ShapeCache.generateElementShape(element, renderConfig, elementsMap);
       shapes.forEach((shape) => {
         const node = roughSVGDrawWithPrecision(
@@ -547,7 +602,16 @@ const renderElementToSvg = async (
           node.setAttribute("stroke-opacity", `${opacity}`);
           node.setAttribute("fill-opacity", `${opacity}`);
         }
-        node.setAttribute("stroke-linecap", "round");
+        node.setAttribute(
+          "stroke-linecap",
+          element.customData?.strokeLineCap || "round",
+        );
+        if (element.customData?.strokeLineJoin) {
+          node.setAttribute(
+            "stroke-linejoin",
+            element.customData.strokeLineJoin,
+          );
+        }
         node.setAttribute(
           "transform",
           `translate(${offsetX || 0} ${
