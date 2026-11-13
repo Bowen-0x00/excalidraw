@@ -47,6 +47,8 @@ describe("arrowhead shapes", () => {
     const shapes = ShapeCache.generateElementShape(arrow, null);
     // 1 shaft + 1 joined V-arrowhead (instead of 2 disconnected lines)
     expect(shapes).toHaveLength(2);
+    expect(shapes[0].options.stroke).not.toBe("none");
+    expect(shapes[1].options.stroke).not.toBe("none");
     const headPath = shapes[1].sets.find((s) => s.type === "path")!;
     expect(headPath.ops.map((op) => op.op)).toEqual([
       "move",
@@ -71,6 +73,7 @@ describe("arrowhead shapes", () => {
         Drawable & { closeStrokePath?: boolean }
       >;
       expect(head.closeStrokePath).toBe(true);
+      expect(head.options.stroke).not.toBe("none");
       const outline = head.sets.find((s) => s.type === "path")!;
       expect(outline.ops.filter((op) => op.op === "move")).toHaveLength(1);
     },

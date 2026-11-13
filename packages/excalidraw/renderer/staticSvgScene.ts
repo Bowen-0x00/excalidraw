@@ -581,15 +581,22 @@ const renderElementToSvg = async (
       if (boundText) {
         group.setAttribute("mask", `url(#mask-${element.id})`);
       }
-      group.setAttribute(
-        "stroke-linecap",
-        element.customData?.strokeLineCap || "round",
-      );
+      const arrowStrokeLineCap =
+        element.customData?.strokeLineCap ||
+        (element.type === "arrow" &&
+        element.customData?.strokeLineJoin &&
+        element.customData.strokeLineJoin !== "round"
+          ? "butt"
+          : "round");
+      group.setAttribute("stroke-linecap", arrowStrokeLineCap);
       if (element.customData?.strokeLineJoin) {
         group.setAttribute(
           "stroke-linejoin",
           element.customData.strokeLineJoin,
         );
+        if (element.customData.strokeLineJoin === "miter") {
+          group.setAttribute("stroke-miterlimit", "10");
+        }
       }
       const shapes = ShapeCache.generateElementShape(element, renderConfig, elementsMap);
       shapes.forEach((shape) => {
@@ -602,15 +609,15 @@ const renderElementToSvg = async (
           node.setAttribute("stroke-opacity", `${opacity}`);
           node.setAttribute("fill-opacity", `${opacity}`);
         }
-        node.setAttribute(
-          "stroke-linecap",
-          element.customData?.strokeLineCap || "round",
-        );
+        node.setAttribute("stroke-linecap", arrowStrokeLineCap);
         if (element.customData?.strokeLineJoin) {
           node.setAttribute(
             "stroke-linejoin",
             element.customData.strokeLineJoin,
           );
+          if (element.customData.strokeLineJoin === "miter") {
+            node.setAttribute("stroke-miterlimit", "10");
+          }
         }
         node.setAttribute(
           "transform",

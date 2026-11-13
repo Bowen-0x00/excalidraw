@@ -616,8 +616,13 @@ const drawElementOnCanvas = (
     case "arrow":
     case "line": {
       context.lineJoin = element?.customData?.strokeLineJoin ?? "round"; //ymjr
-      context.lineCap = element?.customData?.strokeLineCap ?? "round"; //ymjr
-
+      context.lineCap =
+        element?.customData?.strokeLineCap ??
+        (element.type === "arrow" &&
+        element?.customData?.strokeLineJoin &&
+        element.customData.strokeLineJoin !== "round"
+          ? "butt"
+          : "round"); //ymjr
       ShapeCache.generateElementShape(element, renderConfig, elementsMap).forEach(
         (shape) => {
           drawShape(shape);

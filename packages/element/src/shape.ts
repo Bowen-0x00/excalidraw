@@ -435,7 +435,10 @@ const generateJoinedLinearPath = (
   ];
   const drawable: JoinedDrawable = {
     shape: closed ? "polygon" : "linearPath",
-    options: base.options,
+    options: {
+      ...base.options,
+      stroke: options.stroke ?? base.options.stroke,
+    },
     sets,
   };
   if (closed && (options.disableMultiStroke || options.roughness === 0)) {
