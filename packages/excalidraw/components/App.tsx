@@ -9837,6 +9837,9 @@ class App extends React.Component<AppProps, AppState> {
                 ...(this.state.currentItemArrowHeadSize
                   ? { arrowHeadSize: this.state.currentItemArrowHeadSize }
                   : {}),
+                ...(this.state.currentItemFixedArrowheadSize
+                  ? { fixedArrowheadSize: true }
+                  : {}),
               },
             })
           : newLinearElement({

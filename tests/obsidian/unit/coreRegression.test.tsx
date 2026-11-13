@@ -380,3 +380,48 @@ it("shows Stroke line cap and join controls for selected arrows and exports shar
   // 1 shaft + 1 joined V-arrowhead = 2 child <g> nodes
   expect(arrowGroup.querySelectorAll(":scope > g")).toHaveLength(2);
 });
+
+it("toggles fixed arrowhead size inline in Arrowhead size header", async () => {
+  const { api, container } = await mount();
+  const [arrow] = convertToExcalidrawElements([
+    {
+      type: "arrow",
+      x: 10,
+      y: 20,
+      points: [
+        [0, 0],
+        [40, 0],
+        [40, 6],
+      ],
+      roughness: 0,
+      endArrowhead: "triangle",
+    },
+  ]);
+  act(() =>
+    api.updateScene({
+      elements: [arrow],
+      appState: { selectedElementIds: { [arrow.id]: true } },
+      captureUpdate: "IMMEDIATELY",
+    }),
+  );
+
+  const toggleBtn = await waitFor(() => {
+    const btn = container.querySelector<HTMLButtonElement>(
+      'button[aria-label*="arrowhead size"]',
+    );
+    expect(btn).not.toBeNull();
+    return btn!;
+  });
+  expect(toggleBtn.textContent).toContain("Auto");
+  expect(toggleBtn.getAttribute("aria-pressed")).toBe("false");
+
+  fireEvent.click(toggleBtn);
+
+  await waitFor(() => {
+    const updated = api.getSceneElements().find((el) => el.id === arrow.id)!;
+    expect(updated.customData?.fixedArrowheadSize).toBe(true);
+    expect(api.getAppState().currentItemFixedArrowheadSize).toBe(true);
+    expect(toggleBtn.textContent).toContain("Fixed");
+    expect(toggleBtn.getAttribute("aria-pressed")).toBe("true");
+  });
+});

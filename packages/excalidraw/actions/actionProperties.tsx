@@ -183,6 +183,8 @@ import {
   lineCrossingArcIcon, //ymjr
   lineCrossingGapIcon, //ymjr
   lineCrossingDotIcon, //ymjr
+  LockedIcon, //ymjr
+  UnlockedIcon, //ymjr
 } from "../components/icons";
 import { Fonts } from "../fonts";
 import { getLanguage, t } from "../i18n";
@@ -2434,6 +2436,7 @@ export const actionChangeArrowProperties = register({
     return (
       <div className="selected-shape-actions">
         {renderAction("changeArrowhead")}
+        {renderAction("changeArrowheadSize") /*ymjr*/}
         {renderAction("changeArrowType")}
         {renderAction("changeLineCrossings") /*ymjr*/}
       </div>
@@ -2709,22 +2712,114 @@ export const actionChangeArrowType = register<keyof typeof ARROW_TYPE>({
 
 //ymjr
 // ymjr: expose custom arrowhead scaling in the properties panel.
+export const actionChangeFixedArrowheadSize = register<boolean>({
+  name: "changeFixedArrowheadSize",
+  label: "Toggle fixed arrowhead size",
+  trackEvent: false,
+  perform: (elements, appState, value) => {
+    const nextFixed =
+      typeof value === "boolean"
+        ? value
+        : !appState.currentItemFixedArrowheadSize;
+    return {
+      elements: changeProperty(elements, appState, (el) => {
+        if (isArrowElement(el)) {
+          const newCustomData = el.customData ? { ...el.customData } : {};
+          if (nextFixed) {
+            newCustomData.fixedArrowheadSize = true;
+          } else {
+            delete newCustomData.fixedArrowheadSize;
+          }
+          const newEl = newElementWith(el, { customData: newCustomData });
+          ShapeCache.delete(newEl);
+          return newEl;
+        }
+        return el;
+      }),
+      appState: {
+        ...appState,
+        currentItemFixedArrowheadSize: nextFixed,
+      },
+      captureUpdate: CaptureUpdateAction.IMMEDIATELY,
+    };
+  },
+  PanelComponent: ({ elements, appState, updateData, app }) => {
+    const currentFixed = getFormValue<boolean | null>(
+      elements,
+      app,
+      (element) =>
+        isArrowElement(element)
+          ? Boolean(element.customData?.fixedArrowheadSize)
+          : null,
+      (element) => isArrowElement(element),
+      (hasSelection) =>
+        hasSelection ? null : Boolean(appState.currentItemFixedArrowheadSize),
+    );
+    const isFixed = Boolean(currentFixed);
+    const label = isFixed ? "Fixed" : "Auto";
+    const title = isFixed
+      ? "Fixed arrowhead size: keeps full size on short segments (click for Auto)"
+      : "Auto-fit arrowhead size on short segments (click to lock Fixed size)";
+
+    return (
+      <button
+        type="button"
+        aria-pressed={isFixed}
+        title={title}
+        aria-label={title}
+        onClick={() => updateData(!isFixed)}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "0.25rem",
+          height: "1.375rem",
+          padding: "0 0.375rem",
+          fontSize: "0.6875rem",
+          lineHeight: 1,
+          borderRadius: "4px",
+          cursor: "pointer",
+          color: isFixed
+            ? "var(--color-on-primary-container, var(--text-primary-color))"
+            : "var(--text-primary-color)",
+          backgroundColor: isFixed
+            ? "var(--button-selected-bg, var(--color-surface-primary-container))"
+            : "var(--button-bg, var(--color-surface-mid))",
+          border: isFixed
+            ? "1px solid var(--button-selected-border, var(--color-surface-primary-container))"
+            : "1px solid var(--button-border, var(--color-surface-high))",
+        }}
+      >
+        <span
+          style={{
+            display: "inline-flex",
+            width: "0.75rem",
+            height: "0.75rem",
+          }}
+        >
+          {isFixed ? LockedIcon : UnlockedIcon}
+        </span>
+        <span>{label}</span>
+      </button>
+    );
+  },
+});
+
 export const actionChangeArrowheadSize = register<number>({
   name: "changeArrowheadSize",
   label: "Change arrowhead size",
   trackEvent: false,
-  perform: (elements, appState, value, app) => {
+  perform: (elements, appState, value) => {
     return {
       elements: changeProperty(elements, appState, (el) => {
         if (isArrowElement(el)) {
-          const size = value;
-          ShapeCache.delete(el);
-          // @ts-ignore
-          el.customData = {
-            ...el.customData,
-            arrowHeadSize: size,
-          };
-          return el;
+          const newEl = newElementWith(el, {
+            customData: {
+              ...el.customData,
+              arrowHeadSize: value,
+            },
+          });
+          ShapeCache.delete(newEl);
+          return newEl;
         }
 
         return el;
@@ -2736,7 +2831,7 @@ export const actionChangeArrowheadSize = register<number>({
       captureUpdate: CaptureUpdateAction.IMMEDIATELY,
     };
   },
-  PanelComponent: ({ elements, appState, updateData, app }) => {
+  PanelComponent: ({ elements, appState, updateData, app, renderAction }) => {
     const currentSize =
       getFormValue(
         elements,
@@ -2756,7 +2851,20 @@ export const actionChangeArrowheadSize = register<number>({
 
     return (
       <fieldset>
-        <legend>{`Arrowhead size (${Math.round(currentSize * 100)}%)`}</legend>
+        <legend style={{ width: "100%" }}>
+          <span
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "0.25rem",
+              width: "100%",
+            }}
+          >
+            <span>{`Arrowhead size (${Math.round(currentSize * 100)}%)`}</span>
+            {renderAction("changeFixedArrowheadSize")}
+          </span>
+        </legend>
         <input
           type="range"
           min={0.5}

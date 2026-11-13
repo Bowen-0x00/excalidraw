@@ -20,6 +20,7 @@ import {
   getElementBounds,
 } from "../src/bounds";
 import { ShapeCache } from "../src/shape";
+import { newElementWith } from "../src/mutateElement";
 
 import type {
   Arrowhead,
@@ -374,5 +375,42 @@ describe("getArrowheadPoints()", () => {
     expect(
       pointDistance(pointFrom(tipX, tipY), pointFrom(backX, backY)),
     ).toBeCloseTo(lastSegmentLength);
+  });
+
+  it("keeps full arrowhead size on short segments when fixedArrowheadSize is enabled", () => {
+    const shortArrow = API.createElement({
+      type: "arrow",
+      points: [prevSegment[0], prevSegment[1], tip],
+      endArrowhead: "triangle",
+      roundness: null,
+      roughness: 0,
+      strokeWidth: 2,
+    });
+    const autoPoints = getArrowheadPoints(
+      shortArrow,
+      ShapeCache.generateElementShape(shortArrow, null),
+      "end",
+      "triangle",
+    )!;
+    const fixedArrow = newElementWith(shortArrow, {
+      customData: { fixedArrowheadSize: true },
+    });
+    const fixedPoints = getArrowheadPoints(
+      fixedArrow,
+      ShapeCache.generateElementShape(fixedArrow, null),
+      "end",
+      "triangle",
+    )!;
+
+    const autoSide = pointDistance(
+      pointFrom(autoPoints[0], autoPoints[1]),
+      pointFrom(autoPoints[2], autoPoints[3]),
+    );
+    const fixedSide = pointDistance(
+      pointFrom(fixedPoints[0], fixedPoints[1]),
+      pointFrom(fixedPoints[2], fixedPoints[3]),
+    );
+    expect(autoSide).toBeLessThan(getArrowheadSize("triangle"));
+    expect(fixedSide).toBeCloseTo(getArrowheadSize("triangle"));
   });
 });

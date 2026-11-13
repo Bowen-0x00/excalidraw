@@ -486,6 +486,7 @@ export interface AppState {
   currentItemStartArrowhead: Arrowhead | null;
   currentItemEndArrowhead: Arrowhead | null;
   currentItemArrowHeadSize: number; // ymjr
+  currentItemFixedArrowheadSize: boolean; // ymjr
   currentItemBlockArrowWidth: number; // ymjr
   currentHoveredFontFamily: FontFamilyValues | null;
   currentItemRoundness: StrokeRoundness;

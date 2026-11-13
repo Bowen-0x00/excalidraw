@@ -1117,8 +1117,8 @@ export const getArrowheadPoints = (
       ),
     );
   }
-  //ymjr -- Explicit custom sizing overrides native short-segment scaling.
-  if (scale !== 1) {
+  //ymjr -- Explicit custom sizing or fixed-size toggle overrides native short-segment scaling.
+  if (scale !== 1 || element?.customData?.fixedArrowheadSize) {
     minSize = size * scale;
   }
   const tx = x2 - nx * minSize * offsetMultiplier;
